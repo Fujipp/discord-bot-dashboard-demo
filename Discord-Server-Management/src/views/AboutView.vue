@@ -1,15 +1,5 @@
 <template>
-  <div class="about">
-    <h1>This is an about page</h1>
-  </div>
+  <main class="mx-auto max-w-7xl px-4 py-8 text-gray-100 sm:px-6 lg:px-8">
+    <h1 class="text-2xl font-semibold">About</h1>
+  </main>
 </template>
-
-<style>
-@media (min-width: 1024px) {
-  .about {
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-  }
-}
-</style>

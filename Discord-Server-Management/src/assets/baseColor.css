@@ -1,0 +1,89 @@
+:root {
+  /* Light Mode - Luxe Slate */
+  --color-primary: #334155;
+  --color-primary-light: #64748b;
+  --color-secondary: #4f46e5;
+  --color-accent: #b88a2b;
+
+  --color-background: #f8fafc;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f1f5f9;
+  --color-surface-elevated: #ffffff;
+
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #475569;
+  --color-text-muted: #94a3b8;
+
+  --color-border: #e2e8f0;
+  --color-divider: #cbd5e1;
+  --color-ring: #4f46e5;
+
+  --color-success: #16a34a;
+  --color-warning: #d97706;
+  --color-error: #dc2626;
+  --color-info: #2563eb;
+
+  --color-overlay: rgb(15 23 42 / 0.42);
+  --shadow-soft: 0 18px 50px rgb(15 23 42 / 0.08);
+  --shadow-elevated: 0 24px 70px rgb(15 23 42 / 0.14);
+}
+
+.dark {
+  /* Dark Mode - Luxe Slate */
+  --color-primary: #94a3b8;
+  --color-primary-light: #cbd5e1;
+  --color-secondary: #818cf8;
+  --color-accent: #d4af37;
+
+  --color-background: #0b1120;
+  --color-surface: #111827;
+  --color-surface-muted: #1f2937;
+  --color-surface-elevated: #172033;
+
+  --color-text-primary: #f8fafc;
+  --color-text-secondary: #cbd5e1;
+  --color-text-muted: #94a3b8;
+
+  --color-border: #334155;
+  --color-divider: #475569;
+  --color-ring: #818cf8;
+
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-error: #f87171;
+  --color-info: #60a5fa;
+
+  --color-overlay: rgb(2 6 23 / 0.68);
+  --shadow-soft: 0 18px 50px rgb(0 0 0 / 0.28);
+  --shadow-elevated: 0 24px 70px rgb(0 0 0 / 0.42);
+}
+
+.christmas {
+  /* Christmas Theme */
+  --color-primary: #c41e3a;
+  --color-primary-light: #ff6b6b;
+  --color-secondary: #228b22;
+  --color-accent: #ffd700;
+
+  --color-background: #0a1f0a;
+  --color-surface: #1a2f1a;
+  --color-surface-muted: #243b24;
+  --color-surface-elevated: #203820;
+
+  --color-text-primary: #f5f5dc;
+  --color-text-secondary: #98d98e;
+  --color-text-muted: #77b96f;
+
+  --color-border: #2d4a2d;
+  --color-divider: #2d4a2d;
+  --color-ring: #ffd700;
+
+  --color-success: #228b22;
+  --color-warning: #ffd700;
+  --color-error: #c41e3a;
+  --color-info: #7dd3fc;
+
+  --color-overlay: rgb(10 31 10 / 0.72);
+  --shadow-soft: 0 18px 50px rgb(0 0 0 / 0.24);
+  --shadow-elevated: 0 24px 70px rgb(0 0 0 / 0.36);
+}

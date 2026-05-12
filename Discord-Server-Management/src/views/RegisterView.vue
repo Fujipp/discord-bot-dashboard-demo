@@ -1,0 +1,450 @@
+<script setup lang="ts">
+import { ref } from 'vue';
+import { RouterLink } from 'vue-router';
+import {
+  ArrowRight,
+  Calendar,
+  Chrome,
+  Github,
+  Lock,
+  Mail,
+  MessageCircle,
+  User,
+  UserPlus,
+} from 'lucide-vue-next';
+
+type SocialProvider = {
+  name: string;
+  icon: typeof Github;
+  className: string;
+};
+
+const email = ref('');
+const username = ref('');
+const password = ref('');
+const age = ref<number | null>(null);
+
+const socialProviders: SocialProvider[] = [
+  { name: 'Discord', icon: MessageCircle, className: 'discord' },
+  { name: 'Google', icon: Chrome, className: 'google' },
+  { name: 'GitHub', icon: Github, className: 'github' },
+];
+
+function registerWithProvider(provider: string) {
+  console.log(`Register with ${provider}`);
+}
+
+function submitRegister() {
+  console.log('Register', {
+    email: email.value,
+    username: username.value,
+    password: password.value,
+    age: age.value,
+  });
+}
+</script>
+
+<template>
+  <section class="auth-page">
+    <div class="auth-shell">
+      <aside class="auth-copy" aria-label="Create account intro">
+        <div class="brand-mark">F</div>
+        <p class="eyebrow">Start your workspace</p>
+        <h1>Create your management account.</h1>
+        <p class="lead">
+          Connect your identity now, then plug in your Discord server when the backend is ready.
+        </p>
+      </aside>
+
+      <form class="auth-card" @submit.prevent="submitRegister">
+        <div class="card-heading">
+          <UserPlus class="heading-icon" aria-hidden="true" />
+          <div>
+            <p class="eyebrow">Join FUJIPP</p>
+            <h2>Register</h2>
+          </div>
+        </div>
+
+        <div class="social-grid" aria-label="Social register options">
+          <button
+            v-for="provider in socialProviders"
+            :key="provider.name"
+            type="button"
+            class="social-button"
+            :class="provider.className"
+            @click="registerWithProvider(provider.name)"
+          >
+            <component :is="provider.icon" class="h-5 w-5" aria-hidden="true" />
+            <span>{{ provider.name }}</span>
+          </button>
+        </div>
+
+        <div class="divider">
+          <span>or create with email</span>
+        </div>
+
+        <label class="field">
+          <span>Email</span>
+          <div class="input-wrap">
+            <Mail class="field-icon" aria-hidden="true" />
+            <input
+              v-model="email"
+              type="email"
+              name="email"
+              autocomplete="email"
+              placeholder="you@example.com"
+              required
+            />
+          </div>
+        </label>
+
+        <div class="field-grid">
+          <label class="field">
+            <span>Username</span>
+            <div class="input-wrap">
+              <User class="field-icon" aria-hidden="true" />
+              <input
+                v-model="username"
+                type="text"
+                name="username"
+                autocomplete="username"
+                placeholder="fujipp"
+                minlength="3"
+                required
+              />
+            </div>
+          </label>
+
+          <label class="field">
+            <span>Age</span>
+            <div class="input-wrap">
+              <Calendar class="field-icon" aria-hidden="true" />
+              <input
+                v-model.number="age"
+                type="number"
+                name="age"
+                inputmode="numeric"
+                placeholder="18"
+                min="13"
+                max="120"
+                required
+              />
+            </div>
+          </label>
+        </div>
+
+        <label class="field">
+          <span>Password</span>
+          <div class="input-wrap">
+            <Lock class="field-icon" aria-hidden="true" />
+            <input
+              v-model="password"
+              type="password"
+              name="password"
+              autocomplete="new-password"
+              placeholder="Create a strong password"
+              minlength="8"
+              required
+            />
+          </div>
+        </label>
+
+        <label class="terms">
+          <input type="checkbox" required />
+          <span>I agree to the terms and community management policy.</span>
+        </label>
+
+        <button type="submit" class="primary-button">
+          <span>Create account</span>
+          <ArrowRight class="h-5 w-5" aria-hidden="true" />
+        </button>
+
+        <p class="switch-copy">
+          Already have an account?
+          <RouterLink to="/login">Login</RouterLink>
+        </p>
+      </form>
+    </div>
+  </section>
+</template>
+
+<style scoped>
+.auth-page {
+  min-height: calc(100dvh - 4rem);
+  display: grid;
+  place-items: center;
+  padding: 2rem 1rem;
+}
+
+.auth-shell {
+  width: min(100%, 62rem);
+  display: grid;
+  grid-template-columns: 0.95fr 1.05fr;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-elevated);
+}
+
+.auth-copy {
+  display: flex;
+  min-height: 37rem;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 2rem;
+  color: #ffffff;
+  background:
+    linear-gradient(160deg, rgb(184 138 43 / 0.9), rgb(15 23 42 / 0.93)),
+    radial-gradient(circle at 18% 18%, rgb(79 70 229 / 0.78), transparent 36%);
+}
+
+.brand-mark {
+  width: 3rem;
+  height: 3rem;
+  display: grid;
+  place-items: center;
+  margin-bottom: auto;
+  border: 1px solid rgb(255 255 255 / 0.34);
+  border-radius: 8px;
+  font-size: 1.35rem;
+  font-weight: 800;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.auth-copy .eyebrow,
+.auth-copy .lead {
+  color: rgb(255 255 255 / 0.76);
+}
+
+.auth-copy h1 {
+  margin: 0.75rem 0 1rem;
+  max-width: 25rem;
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.lead {
+  margin: 0;
+  max-width: 29rem;
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+.auth-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 2rem;
+  background: var(--color-surface);
+}
+
+.card-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  margin-bottom: 0.25rem;
+}
+
+.heading-icon {
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0.7rem;
+  border-radius: 8px;
+  color: var(--color-secondary);
+  background: var(--color-surface-muted);
+}
+
+.card-heading h2 {
+  margin: 0.2rem 0 0;
+  color: var(--color-text-primary);
+  font-size: 1.75rem;
+  font-weight: 800;
+}
+
+.social-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.social-button,
+.primary-button {
+  min-height: 3rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  border-radius: 8px;
+  font-weight: 750;
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    background-color 0.2s ease;
+}
+
+.social-button {
+  border: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+}
+
+.social-button:hover,
+.primary-button:hover {
+  transform: translateY(-1px);
+}
+
+.social-button.discord {
+  color: #5865f2;
+}
+
+.social-button.google {
+  color: #1a73e8;
+}
+
+.social-button.github {
+  color: var(--color-text-primary);
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  height: 1px;
+  flex: 1;
+  background: var(--color-divider);
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 9rem;
+  gap: 0.85rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.45rem;
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 3.2rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0 0.9rem;
+  background: var(--color-surface-muted);
+  color: var(--color-text-primary);
+}
+
+.input-wrap:focus-within {
+  border-color: var(--color-ring);
+  box-shadow: 0 0 0 3px rgb(79 70 229 / 0.14);
+}
+
+.field-icon {
+  width: 1.1rem;
+  height: 1.1rem;
+  flex: none;
+  color: var(--color-text-muted);
+}
+
+input {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  color: var(--color-text-primary);
+  background: transparent;
+  font: inherit;
+}
+
+input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.terms {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  color: var(--color-text-secondary);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.terms input {
+  width: 1rem;
+  height: 1rem;
+  margin-top: 0.2rem;
+  flex: none;
+  accent-color: var(--color-secondary);
+}
+
+.switch-copy a {
+  color: var(--color-secondary);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.switch-copy a:hover {
+  text-decoration: underline;
+}
+
+.primary-button {
+  border: 0;
+  color: #ffffff;
+  background: var(--color-secondary);
+}
+
+.switch-copy {
+  margin: 0.25rem 0 0;
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .auth-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-copy {
+    min-height: auto;
+  }
+}
+
+@media (max-width: 560px) {
+  .auth-page {
+    padding: 1rem;
+  }
+
+  .auth-copy,
+  .auth-card {
+    padding: 1.25rem;
+  }
+
+  .social-grid,
+  .field-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
