@@ -26,10 +26,12 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final TokenService tokenService;
 
-    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, TokenService tokenService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.tokenService = tokenService;
     }
 
     public AuthResponse register(RegisterRequest request) {
@@ -64,7 +66,7 @@ public class AuthService {
         user.setUpdatedAt(now);
 
         UserAccount savedUser = userRepository.save(user);
-        return new AuthResponse("Account created", UserResponse.from(savedUser));
+        return new AuthResponse("Account created", tokenService.createAccessToken(savedUser.getId()), UserResponse.from(savedUser));
     }
 
     public AuthResponse login(LoginRequest request) {
@@ -89,7 +91,7 @@ public class AuthService {
         user.setUpdatedAt(now);
         UserAccount savedUser = userRepository.save(user);
 
-        return new AuthResponse("Login successful", UserResponse.from(savedUser));
+        return new AuthResponse("Login successful", tokenService.createAccessToken(savedUser.getId()), UserResponse.from(savedUser));
     }
 
     private String normalizeEmail(String email) {

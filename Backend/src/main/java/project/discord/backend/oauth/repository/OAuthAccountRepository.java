@@ -13,4 +13,6 @@ public interface OAuthAccountRepository extends CrudRepository<OAuthAccount, Lon
             OAuthProvider provider,
             String providerUserId
     );
+
+    Optional<OAuthAccount> findByUserIdAndProvider(Long userId, OAuthProvider provider);
 }
