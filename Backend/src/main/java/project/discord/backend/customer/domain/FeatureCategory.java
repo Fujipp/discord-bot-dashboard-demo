@@ -1,10 +1,12 @@
 package project.discord.backend.customer.domain;
 
 public enum FeatureCategory {
-    MODERATION,
-    MUSIC,
-    SUPPORT,
-    ANALYTICS,
+    SHOP,
+    PAYMENT,
+    ROBLOX,
+    ENGAGEMENT,
+    RUNTIME,
+    ADMIN,
     AUTOMATION,
-    AI
+    SUPPORT
 }

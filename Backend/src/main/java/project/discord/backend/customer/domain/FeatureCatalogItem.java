@@ -22,6 +22,21 @@ public class FeatureCatalogItem {
     private String currency = "THB";
     private FeatureCategory category;
 
+    @Column("promotion_label")
+    private String promotionLabel;
+
+    @Column("promotion_price_cents")
+    private Integer promotionPriceCents;
+
+    @Column("promotion_ends_at")
+    private Instant promotionEndsAt;
+
+    @Column("is_featured")
+    private Boolean featured = false;
+
+    @Column("sort_order")
+    private Integer sortOrder = 100;
+
     @Column("is_active")
     private Boolean active = true;
 
@@ -85,6 +100,46 @@ public class FeatureCatalogItem {
 
     public void setCategory(FeatureCategory category) {
         this.category = category;
+    }
+
+    public String getPromotionLabel() {
+        return promotionLabel;
+    }
+
+    public void setPromotionLabel(String promotionLabel) {
+        this.promotionLabel = promotionLabel;
+    }
+
+    public Integer getPromotionPriceCents() {
+        return promotionPriceCents;
+    }
+
+    public void setPromotionPriceCents(Integer promotionPriceCents) {
+        this.promotionPriceCents = promotionPriceCents;
+    }
+
+    public Instant getPromotionEndsAt() {
+        return promotionEndsAt;
+    }
+
+    public void setPromotionEndsAt(Instant promotionEndsAt) {
+        this.promotionEndsAt = promotionEndsAt;
+    }
+
+    public Boolean getFeatured() {
+        return featured;
+    }
+
+    public void setFeatured(Boolean featured) {
+        this.featured = featured;
+    }
+
+    public Integer getSortOrder() {
+        return sortOrder;
+    }
+
+    public void setSortOrder(Integer sortOrder) {
+        this.sortOrder = sortOrder;
     }
 
     public Boolean getActive() {

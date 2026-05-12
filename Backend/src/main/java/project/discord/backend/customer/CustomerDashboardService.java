@@ -46,7 +46,7 @@ public class CustomerDashboardService {
     }
 
     public CustomerDashboardResponse getDashboard(UserAccount user) {
-        List<FeatureCatalogItem> features = featureCatalogRepository.findByActiveTrueOrderByMonthlyPriceCentsAsc();
+        List<FeatureCatalogItem> features = featureCatalogRepository.findByActiveTrueOrderBySortOrderAscMonthlyPriceCentsAsc();
         Map<Long, FeatureCatalogItem> featuresById = features.stream()
                 .collect(Collectors.toMap(FeatureCatalogItem::getId, Function.identity()));
 

@@ -8,5 +8,7 @@ import project.discord.backend.customer.domain.FeatureCatalogItem;
 
 public interface FeatureCatalogRepository extends CrudRepository<FeatureCatalogItem, Long> {
 
-    List<FeatureCatalogItem> findByActiveTrueOrderByMonthlyPriceCentsAsc();
+    List<FeatureCatalogItem> findByActiveTrueOrderBySortOrderAscMonthlyPriceCentsAsc();
+
+    List<FeatureCatalogItem> findAllByOrderBySortOrderAscMonthlyPriceCentsAsc();
 }
