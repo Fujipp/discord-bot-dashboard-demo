@@ -1,6 +1,14 @@
 export type BotStatus = 'ONLINE' | 'OFFLINE' | 'MAINTENANCE';
 export type SubscriptionStatus = 'TRIALING' | 'ACTIVE' | 'PAST_DUE' | 'CANCELED';
-export type FeatureCategory = 'MODERATION' | 'MUSIC' | 'SUPPORT' | 'ANALYTICS' | 'AUTOMATION' | 'AI';
+export type FeatureCategory =
+  | 'SHOP'
+  | 'PAYMENT'
+  | 'ROBLOX'
+  | 'ENGAGEMENT'
+  | 'RUNTIME'
+  | 'ADMIN'
+  | 'AUTOMATION'
+  | 'SUPPORT';
 export type BotBillingMode = 'FREE' | 'PAID';
 
 export type FeatureResponse = {
@@ -11,6 +19,12 @@ export type FeatureResponse = {
   monthlyPriceCents: number;
   currency: string;
   category: FeatureCategory;
+  promotionLabel: string | null;
+  promotionPriceCents: number | null;
+  promotionEndsAt: string | null;
+  featured: boolean;
+  sortOrder: number;
+  active: boolean;
 };
 
 export type BotFeatureResponse = {
@@ -140,6 +154,20 @@ export type AdminProcessAssignmentPayload = {
   botName: string;
   billingMode: BotBillingMode;
   monthlyPriceCents: number;
+};
+
+export type AdminShopFeaturePayload = {
+  name: string;
+  description: string;
+  monthlyPriceCents: number;
+  currency: string;
+  category: FeatureCategory;
+  promotionLabel: string | null;
+  promotionPriceCents: number | null;
+  promotionEndsAt: string | null;
+  featured: boolean;
+  sortOrder: number;
+  active: boolean;
 };
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080';
@@ -276,4 +304,43 @@ export async function runAdminRuntimeAction(
   }
 
   return data as RuntimeProcessResponse;
+}
+
+export async function getAdminShopFeatures(accessToken: string) {
+  const response = await fetch(`${API_BASE_URL}/api/admin/shop/features`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(data?.message ?? 'Could not load shop management features');
+  }
+
+  return data as FeatureResponse[];
+}
+
+export async function updateAdminShopFeature(
+  accessToken: string,
+  featureId: number,
+  payload: AdminShopFeaturePayload,
+) {
+  const response = await fetch(`${API_BASE_URL}/api/admin/shop/features/${featureId}`, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(data?.message ?? 'Could not update shop feature');
+  }
+
+  return data as FeatureResponse;
 }

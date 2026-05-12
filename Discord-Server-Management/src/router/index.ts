@@ -21,9 +21,21 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/shop',
+      name: 'shop',
+      component: () => import('../views/ShopView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/admin/runtime',
       name: 'admin-runtime',
       component: () => import('../views/AdminRuntimeView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true },
+    },
+    {
+      path: '/admin/shop',
+      name: 'admin-shop',
+      component: () => import('../views/AdminShopManagementView.vue'),
       meta: { requiresAuth: true, requiresAdmin: true },
     },
     {

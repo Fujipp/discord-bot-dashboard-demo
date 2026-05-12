@@ -1,54 +1,66 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-import { RouterLink, useRouter } from 'vue-router';
-import { ArrowRight, Chrome, Github, Lock, Mail, MessageCircle, ShieldCheck } from 'lucide-vue-next';
+import { ref } from 'vue'
+import { RouterLink, useRouter } from 'vue-router'
+import {
+  ArrowRight,
+  Chrome,
+  Eye,
+  EyeOff,
+  Github,
+  Lock,
+  Mail,
+  MessageCircle,
+  ShieldCheck,
+} from 'lucide-vue-next'
+import { projectNavigation } from '@/config/navigation'
 import {
   login,
   loginWithProvider as startSocialLogin,
   type SocialProvider as SocialProviderId,
-} from '@/services/auth';
-import { useAuthStore } from '@/stores/authStore';
+} from '@/services/auth'
+import { useAuthStore } from '@/stores/authStore'
 
 type SocialProvider = {
-  name: string;
-  id: SocialProviderId;
-  icon: typeof Github;
-  className: string;
-};
+  name: string
+  id: SocialProviderId
+  icon: typeof Github
+  className: string
+}
 
-const router = useRouter();
-const authStore = useAuthStore();
-const email = ref('');
-const password = ref('');
-const isSubmitting = ref(false);
-const errorMessage = ref('');
+const router = useRouter()
+const authStore = useAuthStore()
+const email = ref('')
+const password = ref('')
+const showPassword = ref(false)
+const isSubmitting = ref(false)
+const errorMessage = ref('')
 
 const socialProviders: SocialProvider[] = [
   { name: 'Discord', id: 'discord', icon: MessageCircle, className: 'discord' },
   { name: 'Google', id: 'google', icon: Chrome, className: 'google' },
   { name: 'GitHub', id: 'github', icon: Github, className: 'github' },
-];
+]
 
 function loginWithProvider(provider: SocialProviderId) {
-  startSocialLogin(provider);
+  startSocialLogin(provider)
 }
 
 async function submitLogin() {
-  errorMessage.value = '';
-  isSubmitting.value = true;
+  errorMessage.value = ''
+  isSubmitting.value = true
 
   try {
     const response = await login({
       email: email.value,
       password: password.value,
-    });
+    })
 
-    authStore.setEmailSession(response);
-    await router.push(String(router.currentRoute.value.query.redirect ?? '/'));
+    authStore.setEmailSession(response)
+    await router.push(String(router.currentRoute.value.query.redirect ?? '/'))
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : 'Login failed';
+    errorMessage.value = error instanceof Error ? error.message : 'Login failed'
   } finally {
-    isSubmitting.value = false;
+    isSubmitting.value = false
   }
 }
 </script>
@@ -56,16 +68,36 @@ async function submitLogin() {
 <template>
   <section class="auth-page">
     <div class="auth-shell">
-      <aside class="auth-copy" aria-label="Discord server management intro">
-        <div class="brand-mark">F</div>
-        <p class="eyebrow">Discord Server Management</p>
-        <h1>Sign in to keep your community under control.</h1>
-        <p class="lead">
-          Manage server roles, moderation, member insights, and shop tools from one calm dashboard.
-        </p>
+      <aside class="auth-panel" aria-label="Discord server management intro">
+        <RouterLink to="/" class="brand-lockup">
+          <span class="brand-mark">F</span>
+          <span>{{ projectNavigation.name }}</span>
+        </RouterLink>
+
+        <div class="panel-copy">
+          <p class="eyebrow">Bot hosting portal</p>
+          <h1>Welcome back to your bot control center.</h1>
+          <p>
+            Continue managing runtime, monthly features, shop workflows, and customer bot operations
+            from one focused workspace.
+          </p>
+        </div>
+
+        <div class="panel-stats" aria-label="Workspace highlights">
+          <span>Runtime</span>
+          <span>Billing</span>
+          <span>Shop</span>
+        </div>
       </aside>
 
       <form class="auth-card" @submit.prevent="submitLogin">
+        <div class="mobile-brand">
+          <RouterLink to="/" class="brand-lockup">
+            <span class="brand-mark">F</span>
+            <span>{{ projectNavigation.name }}</span>
+          </RouterLink>
+        </div>
+
         <div class="card-heading">
           <ShieldCheck class="heading-icon" aria-hidden="true" />
           <div>
@@ -117,17 +149,26 @@ async function submitLogin() {
             <Lock class="field-icon" aria-hidden="true" />
             <input
               v-model="password"
-              type="password"
+              :type="showPassword ? 'text' : 'password'"
               name="password"
               autocomplete="current-password"
               placeholder="Enter your password"
               required
             />
+            <button
+              type="button"
+              class="password-toggle"
+              :aria-label="showPassword ? 'Hide password' : 'Show password'"
+              @click="showPassword = !showPassword"
+            >
+              <EyeOff v-if="showPassword" class="h-4 w-4" aria-hidden="true" />
+              <Eye v-else class="h-4 w-4" aria-hidden="true" />
+            </button>
           </div>
         </label>
 
         <div class="form-row">
-          <label class="remember">
+          <label class="check-row">
             <input type="checkbox" />
             <span>Remember me</span>
           </label>
@@ -150,16 +191,17 @@ async function submitLogin() {
 
 <style scoped>
 .auth-page {
-  min-height: calc(100dvh - 4rem);
+  min-height: 100dvh;
   display: grid;
   place-items: center;
-  padding: 2rem 1rem;
+  padding: 1.25rem;
 }
 
 .auth-shell {
-  width: min(100%, 62rem);
+  width: min(100%, 64rem);
+  min-height: min(42rem, calc(100dvh - 2.5rem));
   display: grid;
-  grid-template-columns: 0.95fr 1.05fr;
+  grid-template-columns: minmax(18rem, 0.92fr) minmax(22rem, 1.08fr);
   overflow: hidden;
   border: 1px solid var(--color-border);
   border-radius: 8px;
@@ -167,73 +209,106 @@ async function submitLogin() {
   box-shadow: var(--shadow-elevated);
 }
 
-.auth-copy {
+.auth-panel {
   display: flex;
-  min-height: 34rem;
   flex-direction: column;
-  justify-content: flex-end;
-  padding: 2rem;
-  color: #ffffff;
+  justify-content: space-between;
+  padding: 1.5rem;
+  color: var(--color-surface);
   background:
-    linear-gradient(160deg, rgb(79 70 229 / 0.9), rgb(15 23 42 / 0.92)),
-    radial-gradient(circle at 20% 20%, rgb(184 138 43 / 0.8), transparent 34%);
+    linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 36%, #020617), color-mix(in srgb, var(--color-surface-elevated) 58%, #020617)),
+    linear-gradient(90deg, color-mix(in srgb, var(--color-secondary) 28%, transparent), transparent 48%);
+}
+
+.brand-lockup {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 0.75rem;
+  color: inherit;
+  font-size: 0.95rem;
+  font-weight: 800;
+  text-decoration: none;
 }
 
 .brand-mark {
-  width: 3rem;
-  height: 3rem;
+  width: 2.5rem;
+  height: 2.5rem;
   display: grid;
   place-items: center;
-  margin-bottom: auto;
-  border: 1px solid rgb(255 255 255 / 0.34);
+  border: 1px solid currentColor;
   border-radius: 8px;
-  font-size: 1.35rem;
-  font-weight: 800;
+  font-size: 1.1rem;
+}
+
+.panel-copy {
+  max-width: 28rem;
 }
 
 .eyebrow {
   margin: 0;
   color: var(--color-text-muted);
   font-size: 0.75rem;
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: 0;
   text-transform: uppercase;
 }
 
-.auth-copy .eyebrow,
-.auth-copy .lead {
-  color: rgb(255 255 255 / 0.76);
+.auth-panel .eyebrow,
+.auth-panel p {
+  color: color-mix(in srgb, var(--color-surface) 78%, transparent);
 }
 
-.auth-copy h1 {
-  margin: 0.75rem 0 1rem;
-  max-width: 25rem;
-  font-size: clamp(2rem, 5vw, 3.5rem);
-  line-height: 1;
-  font-weight: 800;
+.panel-copy h1 {
+  margin: 0.85rem 0 1rem;
+  color: var(--color-surface);
+  font-size: clamp(2.25rem, 4.2vw, 4rem);
+  line-height: 0.98;
+  font-weight: 850;
   letter-spacing: 0;
 }
 
-.lead {
+.panel-copy p {
   margin: 0;
-  max-width: 29rem;
   font-size: 1rem;
   line-height: 1.7;
+}
+
+.panel-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.panel-stats span {
+  min-height: 2.4rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--color-surface) 22%, transparent);
+  border-radius: 8px;
+  color: color-mix(in srgb, var(--color-surface) 84%, transparent);
+  font-size: 0.78rem;
+  font-weight: 750;
 }
 
 .auth-card {
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 1rem;
-  padding: 2rem;
+  padding: clamp(1.5rem, 4vw, 3rem);
   background: var(--color-surface);
+}
+
+.mobile-brand {
+  display: none;
+  color: var(--color-text-primary);
 }
 
 .card-heading {
   display: flex;
   align-items: center;
   gap: 0.85rem;
-  margin-bottom: 0.25rem;
 }
 
 .heading-icon {
@@ -248,14 +323,14 @@ async function submitLogin() {
 .card-heading h2 {
   margin: 0.2rem 0 0;
   color: var(--color-text-primary);
-  font-size: 1.75rem;
-  font-weight: 800;
+  font-size: 1.85rem;
+  font-weight: 850;
 }
 
 .social-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.75rem;
+  gap: 0.65rem;
 }
 
 .social-button,
@@ -270,7 +345,8 @@ async function submitLogin() {
   transition:
     transform 0.2s ease,
     border-color 0.2s ease,
-    background-color 0.2s ease;
+    background-color 0.2s ease,
+    color 0.2s ease;
 }
 
 .social-button {
@@ -317,24 +393,27 @@ async function submitLogin() {
   gap: 0.45rem;
   color: var(--color-text-secondary);
   font-size: 0.9rem;
-  font-weight: 700;
+  font-weight: 750;
 }
 
 .input-wrap {
+  min-height: 3.2rem;
   display: flex;
   align-items: center;
   gap: 0.65rem;
-  min-height: 3.2rem;
   border: 1px solid var(--color-border);
   border-radius: 8px;
   padding: 0 0.9rem;
   background: var(--color-surface-muted);
   color: var(--color-text-primary);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .input-wrap:focus-within {
   border-color: var(--color-ring);
-  box-shadow: 0 0 0 3px rgb(79 70 229 / 0.14);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-ring) 16%, transparent);
 }
 
 .field-icon {
@@ -344,8 +423,29 @@ async function submitLogin() {
   color: var(--color-text-muted);
 }
 
+.password-toggle {
+  width: 2rem;
+  height: 2rem;
+  display: grid;
+  flex: none;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  color: var(--color-text-muted);
+  background: transparent;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.password-toggle:hover {
+  color: var(--color-primary);
+  background: var(--color-surface);
+}
+
 input {
   width: 100%;
+  min-width: 0;
   border: 0;
   outline: 0;
   color: var(--color-text-primary);
@@ -366,13 +466,13 @@ input::placeholder {
   font-size: 0.88rem;
 }
 
-.remember {
+.check-row {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
 }
 
-.remember input {
+.check-row input {
   width: 1rem;
   height: 1rem;
   accent-color: var(--color-secondary);
@@ -392,8 +492,8 @@ input::placeholder {
 
 .primary-button {
   border: 0;
-  color: #ffffff;
-  background: var(--color-secondary);
+  color: var(--color-surface);
+  background: var(--color-primary);
 }
 
 .primary-button:disabled {
@@ -412,7 +512,7 @@ input::placeholder {
 
 .auth-alert.error {
   color: var(--color-error);
-  background: rgb(220 38 38 / 0.1);
+  background: color-mix(in srgb, var(--color-error) 12%, transparent);
 }
 
 .switch-copy {
@@ -421,34 +521,55 @@ input::placeholder {
   text-align: center;
 }
 
-@media (max-width: 900px) {
-  .auth-shell {
-    grid-template-columns: 1fr;
-  }
-
-  .auth-copy {
-    min-height: auto;
-  }
-}
-
-@media (max-width: 560px) {
+@media (max-width: 860px) {
   .auth-page {
-    padding: 1rem;
+    display: block;
+    min-height: 100dvh;
+    padding: 0;
+    background: var(--color-surface);
   }
 
-  .auth-copy,
+  .auth-shell {
+    min-height: 100dvh;
+    display: block;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .auth-panel {
+    display: none;
+  }
+
   .auth-card {
-    padding: 1.25rem;
+    min-height: 100dvh;
+    justify-content: flex-start;
+    padding: max(1.25rem, env(safe-area-inset-top)) 1.1rem max(1.25rem, env(safe-area-inset-bottom));
+  }
+
+  .mobile-brand {
+    display: block;
+    margin-bottom: 0.25rem;
   }
 
   .social-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 420px) {
+  .card-heading h2 {
+    font-size: 1.6rem;
   }
 
   .form-row {
     align-items: flex-start;
     flex-direction: column;
     gap: 0.75rem;
+  }
+
+  .social-button span {
+    min-width: 0;
   }
 }
 </style>

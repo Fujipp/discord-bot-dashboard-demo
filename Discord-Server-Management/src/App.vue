@@ -36,10 +36,13 @@ onMounted(() => {
   />
   <AppBackground />
 
-  <main :class="isAuthPage ? '' : navigationMode === 'sidebar' ? 'pt-16 md:pl-72 md:pt-0' : 'pt-16'">
+  <main :class="isAuthPage ? '' : navigationMode === 'sidebar' ? 'app-content pt-16 md:pl-72 md:pt-0' : 'app-content pt-16'">
     <RouterView />
   </main>
 </template>
 
 <style scoped>
+.app-content {
+  min-height: 100dvh;
+}
 </style>

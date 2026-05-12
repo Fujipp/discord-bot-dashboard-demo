@@ -149,8 +149,8 @@ p {
   justify-content: center;
   border-radius: 8px;
   padding: 0 1rem;
-  color: #ffffff;
-  background: var(--color-secondary);
+  color: var(--color-surface);
+  background: var(--color-primary);
   font-weight: 800;
   text-decoration: none;
 }

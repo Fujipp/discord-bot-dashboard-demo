@@ -1,8 +1,8 @@
 <template>
   <header
-    class="fixed left-0 top-0 z-50 flex h-16 w-full items-center justify-between border-b px-4 shadow-sm md:hidden"
+    class="fixed left-0 top-0 z-50 flex h-16 w-full items-center justify-between border-b px-4 shadow-sm backdrop-blur md:hidden"
     :style="{
-      backgroundColor: 'var(--color-surface)',
+      backgroundColor: 'color-mix(in srgb, var(--color-surface) 92%, transparent)',
       borderColor: 'var(--color-border)',
       color: 'var(--color-text-primary)',
     }"
@@ -35,11 +35,11 @@
 
   <aside
     :class="[
-      'fixed left-0 top-0 z-50 flex h-dvh w-72 max-w-[84vw] flex-col overflow-y-auto border-r px-5 py-5 shadow-xl transition-transform duration-200 md:translate-x-0',
+      'fixed left-0 top-0 z-50 flex h-dvh w-72 max-w-[84vw] flex-col overflow-y-auto border-r px-5 py-5 shadow-xl backdrop-blur transition-transform duration-200 md:translate-x-0',
       isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
     ]"
     :style="{
-      backgroundColor: 'var(--color-surface)',
+      backgroundColor: 'color-mix(in srgb, var(--color-surface) 94%, transparent)',
       borderColor: 'var(--color-border)',
       color: 'var(--color-text-primary)',
     }"
@@ -165,11 +165,16 @@
 
 <style scoped>
   .sidebar-link {
+    display: flex;
+    align-items: center;
+    min-height: 2.7rem;
     color: var(--color-text-secondary);
+    border: 1px solid transparent;
   }
 
   .sidebar-link:hover,
   .sidebar-link-active {
+    border-color: var(--color-border);
     background: var(--color-surface-muted);
     color: var(--color-primary);
   }

@@ -15,7 +15,7 @@
             class="text-xl font-bold hover:opacity-80 transition"
             :style="{ color: 'var(--color-text-secondary)' }"
           >
-            FUJIPP
+            {{ projectNavigation.name }}
           </RouterLink>
         </div>
 
@@ -23,7 +23,7 @@
           class="hidden md:flex space-x-6 items-center absolute left-1/2 transform -translate-x-1/2"
         >
           <RouterLink
-            v-for="link in navigationItems"
+            v-for="link in visibleNavigationItems"
             :key="link.path"
             :to="link.path"
             class="nav-link relative font-medium"
@@ -40,16 +40,22 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, onMounted, onUnmounted } from 'vue';
-  import { navigationItems } from '@/config/navigation';
+  import { computed, ref, onMounted, onUnmounted } from 'vue';
+  import { navigationItems, projectNavigation } from '@/config/navigation';
+  import { useAuthStore } from '@/stores/authStore';
 
   const isScrolled = ref(false);
+  const authStore = useAuthStore();
+  const visibleNavigationItems = computed(() =>
+    navigationItems.filter((item) => !item.adminOnly || authStore.user?.role === 'ADMIN'),
+  );
 
   const handleScroll = () => {
     isScrolled.value = window.scrollY > 10;
   };
 
   onMounted(() => {
+    authStore.loadSession();
     window.addEventListener('scroll', handleScroll);
   });
   onUnmounted(() => {
