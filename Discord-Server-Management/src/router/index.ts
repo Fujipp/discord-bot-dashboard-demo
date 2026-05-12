@@ -21,6 +21,12 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/admin/runtime',
+      name: 'admin-runtime',
+      component: () => import('../views/AdminRuntimeView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true },
+    },
+    {
       path: '/login',
       name: 'login',
       component: () => import('../views/LoginView.vue'),
@@ -60,6 +66,10 @@ router.beforeEach(async (to) => {
         query: { redirect: to.fullPath },
       }
     }
+  }
+
+  if (to.meta.requiresAdmin && authStore.user?.role !== 'ADMIN') {
+    return { name: 'home' }
   }
 
   if (to.meta.guestOnly && authStore.isAuthenticated) {

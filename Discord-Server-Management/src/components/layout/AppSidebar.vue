@@ -12,7 +12,7 @@
       class="text-xl font-bold transition hover:opacity-80"
       :style="{ color: 'var(--color-text-secondary)' }"
     >
-      FUJIPP
+      {{ projectNavigation.name }}
     </RouterLink>
 
     <button
@@ -51,7 +51,7 @@
         :style="{ color: 'var(--color-text-secondary)' }"
         @click="emit('close-mobile')"
       >
-        FUJIPP
+        {{ projectNavigation.name }}
       </RouterLink>
 
       <button
@@ -64,60 +64,9 @@
       </button>
     </div>
 
-    <section
-      class="mt-5 rounded-md border p-3"
-      :style="{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-elevated)' }"
-    >
-      <div class="flex items-center gap-3">
-        <div
-          v-if="!authStore.user?.avatarUrl"
-          class="flex h-10 w-10 items-center justify-center rounded-full"
-          :style="{ backgroundColor: 'var(--color-surface-muted)', color: 'var(--color-primary)' }"
-        >
-          <UserRound class="h-5 w-5" />
-        </div>
-        <img
-          v-else
-          :src="authStore.user.avatarUrl"
-          alt=""
-          class="h-10 w-10 rounded-full object-cover"
-        />
-        <div class="min-w-0">
-          <p class="truncate text-sm font-semibold">
-            {{ authStore.displayName }}
-          </p>
-          <p class="truncate text-xs" :style="{ color: 'var(--color-text-muted)' }">
-            {{ authStore.displayEmail }}
-          </p>
-        </div>
-      </div>
-
+    <nav class="mt-6 flex flex-1 flex-col gap-2">
       <RouterLink
-        v-if="!authStore.isAuthenticated"
-        to="/login"
-        class="mt-3 flex w-full items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition hover:opacity-90"
-        :style="{ backgroundColor: 'var(--color-primary)', color: 'var(--color-surface)' }"
-        @click="emit('close-mobile')"
-      >
-        <LogIn class="h-4 w-4" />
-        Login
-      </RouterLink>
-
-      <button
-        v-else
-        type="button"
-        class="mt-3 flex w-full items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition hover:opacity-90"
-        :style="{ backgroundColor: 'var(--color-primary)', color: 'var(--color-surface)' }"
-        @click="logout"
-      >
-        <LogOut class="h-4 w-4" />
-        Logout
-      </button>
-    </section>
-
-    <nav class="mt-5 flex flex-col gap-2">
-      <RouterLink
-        v-for="link in navigationItems"
+        v-for="link in visibleNavigationItems"
         :key="link.path"
         :to="link.path"
         class="sidebar-link rounded-md px-3 py-3 text-sm font-medium transition"
@@ -128,17 +77,65 @@
       </RouterLink>
     </nav>
 
-    <div class="mt-5 border-t pt-4 md:mt-auto" :style="{ borderColor: 'var(--color-divider)' }">
+    <div class="mt-5 flex flex-col gap-3 border-t pt-4" :style="{ borderColor: 'var(--color-divider)' }">
       <ThemeSwitcher />
+
+      <section
+        class="account-panel flex items-center gap-3 rounded-md px-2 py-2 transition"
+        :style="{ color: 'var(--color-text-primary)' }"
+      >
+        <div
+          v-if="!authStore.user?.avatarUrl"
+          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+          :style="{ backgroundColor: 'var(--color-surface-muted)', color: 'var(--color-primary)' }"
+        >
+          <UserRound class="h-4 w-4" />
+        </div>
+        <img
+          v-else
+          :src="authStore.user.avatarUrl"
+          alt=""
+          class="h-9 w-9 shrink-0 rounded-full object-cover"
+        />
+
+        <div class="min-w-0 flex-1">
+          <p class="truncate text-sm font-semibold">
+            {{ authStore.displayName }}
+          </p>
+          <p class="truncate text-xs" :style="{ color: 'var(--color-text-muted)' }">
+            {{ authStore.displayEmail }}
+          </p>
+        </div>
+
+        <RouterLink
+          v-if="!authStore.isAuthenticated"
+          to="/login"
+          class="account-action"
+          aria-label="Login"
+          @click="emit('close-mobile')"
+        >
+          <LogIn class="h-4 w-4" />
+        </RouterLink>
+
+        <button
+          v-else
+          type="button"
+          class="account-action"
+          aria-label="Logout"
+          @click="logout"
+        >
+          <LogOut class="h-4 w-4" />
+        </button>
+      </section>
     </div>
   </aside>
 </template>
 
 <script setup lang="ts">
-  import { onMounted } from 'vue';
+  import { computed, onMounted } from 'vue';
   import { useRouter } from 'vue-router';
   import { LogIn, LogOut, Menu, UserRound, X } from 'lucide-vue-next';
-  import { navigationItems } from '@/config/navigation';
+  import { navigationItems, projectNavigation } from '@/config/navigation';
   import { useAuthStore } from '@/stores/authStore';
   import ThemeSwitcher from './ThemeSwitcher.vue';
 
@@ -150,6 +147,9 @@
 
   const router = useRouter();
   const authStore = useAuthStore();
+  const visibleNavigationItems = computed(() =>
+    navigationItems.filter((item) => !item.adminOnly || authStore.user?.role === 'ADMIN'),
+  );
 
   onMounted(() => {
     authStore.loadSession();
@@ -171,6 +171,29 @@
   .sidebar-link:hover,
   .sidebar-link-active {
     background: var(--color-surface-muted);
+    color: var(--color-primary);
+  }
+
+  .account-panel:hover {
+    background: var(--color-surface-muted);
+  }
+
+  .account-action {
+    display: flex;
+    height: 2rem;
+    width: 2rem;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.375rem;
+    color: var(--color-text-secondary);
+    transition:
+      background-color 0.2s ease,
+      color 0.2s ease;
+  }
+
+  .account-action:hover {
+    background: var(--color-surface-elevated);
     color: var(--color-primary);
   }
 </style>
