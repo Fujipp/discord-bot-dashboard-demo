@@ -1,32 +1,55 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { RouterLink } from 'vue-router';
+import { RouterLink, useRouter } from 'vue-router';
 import { ArrowRight, Chrome, Github, Lock, Mail, MessageCircle, ShieldCheck } from 'lucide-vue-next';
+import {
+  login,
+  loginWithProvider as startSocialLogin,
+  type SocialProvider as SocialProviderId,
+} from '@/services/auth';
+import { useAuthStore } from '@/stores/authStore';
 
 type SocialProvider = {
   name: string;
+  id: SocialProviderId;
   icon: typeof Github;
   className: string;
 };
 
+const router = useRouter();
+const authStore = useAuthStore();
 const email = ref('');
 const password = ref('');
+const isSubmitting = ref(false);
+const errorMessage = ref('');
 
 const socialProviders: SocialProvider[] = [
-  { name: 'Discord', icon: MessageCircle, className: 'discord' },
-  { name: 'Google', icon: Chrome, className: 'google' },
-  { name: 'GitHub', icon: Github, className: 'github' },
+  { name: 'Discord', id: 'discord', icon: MessageCircle, className: 'discord' },
+  { name: 'Google', id: 'google', icon: Chrome, className: 'google' },
+  { name: 'GitHub', id: 'github', icon: Github, className: 'github' },
 ];
 
-function loginWithProvider(provider: string) {
-  console.log(`Login with ${provider}`);
+function loginWithProvider(provider: SocialProviderId) {
+  startSocialLogin(provider);
 }
 
-function submitLogin() {
-  console.log('Login', {
-    email: email.value,
-    password: password.value,
-  });
+async function submitLogin() {
+  errorMessage.value = '';
+  isSubmitting.value = true;
+
+  try {
+    const response = await login({
+      email: email.value,
+      password: password.value,
+    });
+
+    authStore.setEmailSession(response);
+    await router.push(String(router.currentRoute.value.query.redirect ?? '/'));
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : 'Login failed';
+  } finally {
+    isSubmitting.value = false;
+  }
 }
 </script>
 
@@ -58,7 +81,7 @@ function submitLogin() {
             type="button"
             class="social-button"
             :class="provider.className"
-            @click="loginWithProvider(provider.name)"
+            @click="loginWithProvider(provider.id)"
           >
             <component :is="provider.icon" class="h-5 w-5" aria-hidden="true" />
             <span>{{ provider.name }}</span>
@@ -68,6 +91,10 @@ function submitLogin() {
         <div class="divider">
           <span>or continue with email</span>
         </div>
+
+        <p v-if="errorMessage" class="auth-alert error">
+          {{ errorMessage }}
+        </p>
 
         <label class="field">
           <span>Email</span>
@@ -107,8 +134,8 @@ function submitLogin() {
           <a href="#" class="text-link">Forgot password?</a>
         </div>
 
-        <button type="submit" class="primary-button">
-          <span>Login</span>
+        <button type="submit" class="primary-button" :disabled="isSubmitting">
+          <span>{{ isSubmitting ? 'Logging in...' : 'Login' }}</span>
           <ArrowRight class="h-5 w-5" aria-hidden="true" />
         </button>
 
@@ -367,6 +394,25 @@ input::placeholder {
   border: 0;
   color: #ffffff;
   background: var(--color-secondary);
+}
+
+.primary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+  transform: none;
+}
+
+.auth-alert {
+  margin: 0;
+  border-radius: 8px;
+  padding: 0.8rem 0.9rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.auth-alert.error {
+  color: var(--color-error);
+  background: rgb(220 38 38 / 0.1);
 }
 
 .switch-copy {

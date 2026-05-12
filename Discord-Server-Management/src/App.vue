@@ -11,7 +11,7 @@ const isMobileSidebarOpen = ref(false)
 const themeStore = useThemeStore()
 const route = useRoute()
 
-const isAuthPage = computed(() => route.name === 'login' || route.name === 'register')
+const isAuthPage = computed(() => ['login', 'register', 'auth-callback'].includes(String(route.name)))
 
 function toggleMobileSidebar() {
   isMobileSidebarOpen.value = !isMobileSidebarOpen.value

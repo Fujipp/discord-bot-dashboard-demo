@@ -70,22 +70,30 @@
     >
       <div class="flex items-center gap-3">
         <div
+          v-if="!authStore.user?.avatarUrl"
           class="flex h-10 w-10 items-center justify-center rounded-full"
           :style="{ backgroundColor: 'var(--color-surface-muted)', color: 'var(--color-primary)' }"
         >
           <UserRound class="h-5 w-5" />
         </div>
+        <img
+          v-else
+          :src="authStore.user.avatarUrl"
+          alt=""
+          class="h-10 w-10 rounded-full object-cover"
+        />
         <div class="min-w-0">
           <p class="truncate text-sm font-semibold">
-            {{ user?.name ?? 'Guest User' }}
+            {{ authStore.displayName }}
           </p>
           <p class="truncate text-xs" :style="{ color: 'var(--color-text-muted)' }">
-            {{ user?.email ?? 'Login to manage your account' }}
+            {{ authStore.displayEmail }}
           </p>
         </div>
       </div>
 
       <RouterLink
+        v-if="!authStore.isAuthenticated"
         to="/login"
         class="mt-3 flex w-full items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition hover:opacity-90"
         :style="{ backgroundColor: 'var(--color-primary)', color: 'var(--color-surface)' }"
@@ -94,6 +102,17 @@
         <LogIn class="h-4 w-4" />
         Login
       </RouterLink>
+
+      <button
+        v-else
+        type="button"
+        class="mt-3 flex w-full items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition hover:opacity-90"
+        :style="{ backgroundColor: 'var(--color-primary)', color: 'var(--color-surface)' }"
+        @click="logout"
+      >
+        <LogOut class="h-4 w-4" />
+        Logout
+      </button>
     </section>
 
     <nav class="mt-5 flex flex-col gap-2">
@@ -116,9 +135,11 @@
 </template>
 
 <script setup lang="ts">
-  import { ref } from 'vue';
-  import { LogIn, Menu, UserRound, X } from 'lucide-vue-next';
+  import { onMounted } from 'vue';
+  import { useRouter } from 'vue-router';
+  import { LogIn, LogOut, Menu, UserRound, X } from 'lucide-vue-next';
   import { navigationItems } from '@/config/navigation';
+  import { useAuthStore } from '@/stores/authStore';
   import ThemeSwitcher from './ThemeSwitcher.vue';
 
   defineProps<{ isMobileOpen: boolean }>();
@@ -127,12 +148,18 @@
     (e: 'close-mobile'): void;
   }>();
 
-  type SidebarUser = {
-    name: string;
-    email: string;
-  };
+  const router = useRouter();
+  const authStore = useAuthStore();
 
-  const user = ref<SidebarUser | null>(null);
+  onMounted(() => {
+    authStore.loadSession();
+  });
+
+  async function logout() {
+    authStore.clearSession();
+    emit('close-mobile');
+    await router.push('/login');
+  }
 
 </script>
 
