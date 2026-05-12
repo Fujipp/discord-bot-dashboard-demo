@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS users (
   email VARCHAR(320) NOT NULL,
   username VARCHAR(32) NOT NULL,
   password_hash VARCHAR(255) NULL,
-  age TINYINT UNSIGNED NOT NULL,
+  age TINYINT UNSIGNED NULL,
   avatar_url VARCHAR(1024) NULL,
   role ENUM('USER', 'ADMIN') NOT NULL DEFAULT 'USER',
   status ENUM('ACTIVE', 'DISABLED', 'BANNED') NOT NULL DEFAULT 'ACTIVE',
@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS users (
   PRIMARY KEY (id),
   UNIQUE KEY uq_users_email (email),
   UNIQUE KEY uq_users_username (username),
-  CONSTRAINT chk_users_age CHECK (age BETWEEN 13 AND 120)
+  CONSTRAINT chk_users_age CHECK (age IS NULL OR age BETWEEN 13 AND 120)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS oauth_accounts (
