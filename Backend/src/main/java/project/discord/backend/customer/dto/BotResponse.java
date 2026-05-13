@@ -2,6 +2,7 @@ package project.discord.backend.customer.dto;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 
 import project.discord.backend.customer.domain.BotStatus;
@@ -22,10 +23,16 @@ public record BotResponse(
         BigDecimal uptimePercent,
         String hostedRegion,
         Instant lastHeartbeatAt,
-        List<BotFeatureResponse> activeFeatures
+        LocalDate runtimeExpiresAt,
+        List<BotFeatureResponse> activeFeatures,
+        List<BotConfigResponse> configEntries
 ) {
 
-    public static BotResponse from(DiscordBot bot, List<BotFeatureResponse> activeFeatures) {
+    public static BotResponse from(
+            DiscordBot bot,
+            List<BotFeatureResponse> activeFeatures,
+            List<BotConfigResponse> configEntries
+    ) {
         return new BotResponse(
                 bot.getId(),
                 bot.getDiscordApplicationId(),
@@ -40,7 +47,13 @@ public record BotResponse(
                 bot.getUptimePercent(),
                 bot.getHostedRegion(),
                 bot.getLastHeartbeatAt(),
-                activeFeatures
+                activeFeatures.stream()
+                        .filter(feature -> "runtime-247".equals(feature.code()))
+                        .findFirst()
+                        .map(BotFeatureResponse::currentPeriodEnd)
+                        .orElse(null),
+                activeFeatures,
+                configEntries
         );
     }
 }

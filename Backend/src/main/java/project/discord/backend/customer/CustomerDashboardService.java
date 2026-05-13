@@ -1,12 +1,15 @@
 package project.discord.backend.customer;
 
 import java.util.Collections;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 
 import project.discord.backend.customer.domain.BotStatus;
@@ -14,6 +17,7 @@ import project.discord.backend.customer.domain.BotFeatureSubscription;
 import project.discord.backend.customer.domain.FeatureCatalogItem;
 import project.discord.backend.customer.domain.SubscriptionStatus;
 import project.discord.backend.customer.dto.BillingSummaryResponse;
+import project.discord.backend.customer.dto.BotConfigResponse;
 import project.discord.backend.customer.dto.BotFeatureResponse;
 import project.discord.backend.customer.dto.BotResponse;
 import project.discord.backend.customer.dto.CustomerDashboardResponse;
@@ -32,17 +36,20 @@ public class CustomerDashboardService {
     private final FeatureCatalogRepository featureCatalogRepository;
     private final BotFeatureSubscriptionRepository botFeatureSubscriptionRepository;
     private final BillingSubscriptionRepository billingSubscriptionRepository;
+    private final JdbcClient jdbcClient;
 
     public CustomerDashboardService(
             DiscordBotRepository discordBotRepository,
             FeatureCatalogRepository featureCatalogRepository,
             BotFeatureSubscriptionRepository botFeatureSubscriptionRepository,
-            BillingSubscriptionRepository billingSubscriptionRepository
+            BillingSubscriptionRepository billingSubscriptionRepository,
+            JdbcClient jdbcClient
     ) {
         this.discordBotRepository = discordBotRepository;
         this.featureCatalogRepository = featureCatalogRepository;
         this.botFeatureSubscriptionRepository = botFeatureSubscriptionRepository;
         this.billingSubscriptionRepository = billingSubscriptionRepository;
+        this.jdbcClient = jdbcClient;
     }
 
     public CustomerDashboardResponse getDashboard(UserAccount user) {
@@ -54,13 +61,19 @@ public class CustomerDashboardService {
         Map<Long, List<BotFeatureSubscription>> subscriptionsByBotId = subscriptions.stream()
                 .collect(Collectors.groupingBy(BotFeatureSubscription::getBotId));
 
-        List<BotResponse> bots = discordBotRepository.findByOwnerUserIdOrderByCreatedAtDesc(user.getId()).stream()
+        List<project.discord.backend.customer.domain.DiscordBot> customerBots = discordBotRepository.findByOwnerUserIdOrderByCreatedAtDesc(user.getId());
+        Map<Long, List<BotConfigResponse>> configByBotId = loadConfigEntries(
+                customerBots.stream().map(project.discord.backend.customer.domain.DiscordBot::getId).toList()
+        );
+
+        List<BotResponse> bots = customerBots.stream()
                 .map(bot -> BotResponse.from(
                         bot,
                         subscriptionsByBotId.getOrDefault(bot.getId(), Collections.emptyList()).stream()
                                 .map(subscription -> toBotFeature(subscription, featuresById))
                                 .filter(Objects::nonNull)
-                                .toList()
+                                .toList(),
+                        configByBotId.getOrDefault(bot.getId(), Collections.emptyList())
                 ))
                 .toList();
 
@@ -101,5 +114,40 @@ public class CustomerDashboardService {
         }
 
         return BotFeatureResponse.from(subscription, feature);
+    }
+
+    private Map<Long, List<BotConfigResponse>> loadConfigEntries(List<Long> botIds) {
+        if (botIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        return jdbcClient.sql("""
+                SELECT bot_id, config_key, config_value, is_secret, scope, updated_at
+                FROM bot_config_entries
+                WHERE bot_id IN (:botIds)
+                ORDER BY config_key ASC
+                """)
+                .param("botIds", botIds)
+                .query(this::mapConfigEntry)
+                .list()
+                .stream()
+                .collect(Collectors.groupingBy(ConfigEntryRow::botId, Collectors.mapping(ConfigEntryRow::response, Collectors.toList())));
+    }
+
+    private ConfigEntryRow mapConfigEntry(ResultSet rs, int rowNum) throws SQLException {
+        boolean secret = rs.getBoolean("is_secret");
+        return new ConfigEntryRow(
+                rs.getLong("bot_id"),
+                new BotConfigResponse(
+                        rs.getString("config_key"),
+                        secret ? "••••••••" : rs.getString("config_value"),
+                        secret,
+                        rs.getString("scope"),
+                        rs.getTimestamp("updated_at").toInstant()
+                )
+        );
+    }
+
+    private record ConfigEntryRow(Long botId, BotConfigResponse response) {
     }
 }

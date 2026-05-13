@@ -32,6 +32,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/api/auth/register", "/api/auth/login").permitAll()
+                        .requestMatchers("/api/webhooks/omise").permitAll()
                         .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
                         .anyRequest().authenticated()
                 )

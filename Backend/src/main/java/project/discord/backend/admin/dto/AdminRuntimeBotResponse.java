@@ -1,5 +1,7 @@
 package project.discord.backend.admin.dto;
 
+import java.time.LocalDate;
+
 import project.discord.backend.customer.domain.BotBillingMode;
 import project.discord.backend.customer.domain.BotStatus;
 import project.discord.backend.customer.domain.DiscordBot;
@@ -14,10 +16,11 @@ public record AdminRuntimeBotResponse(
         String pm2ProcessName,
         BotStatus status,
         BotBillingMode billingMode,
-        Integer monthlyPriceCents
+        Integer monthlyPriceCents,
+        LocalDate runtimeCurrentPeriodEnd
 ) {
 
-    public static AdminRuntimeBotResponse from(DiscordBot bot, UserAccount owner) {
+    public static AdminRuntimeBotResponse from(DiscordBot bot, UserAccount owner, LocalDate runtimeCurrentPeriodEnd) {
         return new AdminRuntimeBotResponse(
                 bot.getId(),
                 bot.getOwnerUserId(),
@@ -27,7 +30,8 @@ public record AdminRuntimeBotResponse(
                 bot.getPm2ProcessName(),
                 bot.getStatus(),
                 bot.getBillingMode(),
-                bot.getMonthlyPriceCents()
+                bot.getMonthlyPriceCents(),
+                runtimeCurrentPeriodEnd
         );
     }
 }

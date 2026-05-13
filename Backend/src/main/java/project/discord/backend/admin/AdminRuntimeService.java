@@ -1,12 +1,15 @@
 package project.discord.backend.admin;
 
 import java.time.Instant;
+import java.sql.Date;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -33,15 +36,18 @@ public class AdminRuntimeService {
     private final Pm2RuntimeService pm2RuntimeService;
     private final DiscordBotRepository discordBotRepository;
     private final UserRepository userRepository;
+    private final JdbcClient jdbcClient;
 
     public AdminRuntimeService(
             Pm2RuntimeService pm2RuntimeService,
             DiscordBotRepository discordBotRepository,
-            UserRepository userRepository
+            UserRepository userRepository,
+            JdbcClient jdbcClient
     ) {
         this.pm2RuntimeService = pm2RuntimeService;
         this.discordBotRepository = discordBotRepository;
         this.userRepository = userRepository;
+        this.jdbcClient = jdbcClient;
     }
 
     public AdminRuntimeDashboardResponse getDashboard(String hostId, String userSearch) {
@@ -94,7 +100,8 @@ public class AdminRuntimeService {
         bot.setUpdatedAt(now);
 
         DiscordBot savedBot = discordBotRepository.save(bot);
-        return new AdminRuntimeProcessResponse(runtimeProcess, AdminRuntimeBotResponse.from(savedBot, owner));
+        updateRuntimeExpiry(savedBot.getId(), request.runtimeCurrentPeriodEnd());
+        return new AdminRuntimeProcessResponse(runtimeProcess, AdminRuntimeBotResponse.from(savedBot, owner, runtimeExpiry(savedBot.getId())));
     }
 
     public RuntimeProcessResponse runAction(String hostId, String processName, String action) {
@@ -115,11 +122,59 @@ public class AdminRuntimeService {
                         usersById.getOrDefault(
                                 assignedBot.getOwnerUserId(),
                                 userRepository.findById(assignedBot.getOwnerUserId()).orElse(null)
-                        )
+                        ),
+                        runtimeExpiry(assignedBot.getId())
                 ))
                 .orElse(null);
 
         return new AdminRuntimeProcessResponse(runtimeProcess, bot);
+    }
+
+    private LocalDate runtimeExpiry(Long botId) {
+        return jdbcClient.sql("""
+                SELECT bfs.current_period_end
+                FROM bot_feature_subscriptions bfs
+                INNER JOIN feature_catalog fc ON fc.id = bfs.feature_id
+                WHERE bfs.bot_id = :botId
+                  AND fc.code = 'runtime-247'
+                ORDER BY bfs.current_period_end DESC
+                LIMIT 1
+                """)
+                .param("botId", botId)
+                .query(LocalDate.class)
+                .optional()
+                .orElse(null);
+    }
+
+    private void updateRuntimeExpiry(Long botId, LocalDate runtimeCurrentPeriodEnd) {
+        if (runtimeCurrentPeriodEnd == null) {
+            return;
+        }
+
+        Long featureId = jdbcClient.sql("SELECT id FROM feature_catalog WHERE code = 'runtime-247'")
+                .query(Long.class)
+                .optional()
+                .orElse(null);
+        if (featureId == null) {
+            return;
+        }
+
+        LocalDate startDate = LocalDate.now();
+        jdbcClient.sql("""
+                INSERT INTO bot_feature_subscriptions (
+                  bot_id, feature_id, status, current_period_start, current_period_end, auto_renew
+                )
+                VALUES (:botId, :featureId, 'ACTIVE', :startDate, :endDate, TRUE)
+                ON DUPLICATE KEY UPDATE
+                  status = 'ACTIVE',
+                  current_period_end = VALUES(current_period_end),
+                  auto_renew = TRUE
+                """)
+                .param("botId", botId)
+                .param("featureId", featureId)
+                .param("startDate", Date.valueOf(startDate))
+                .param("endDate", Date.valueOf(runtimeCurrentPeriodEnd))
+                .update();
     }
 
     private BotStatus toBotStatus(String runtimeStatus) {
