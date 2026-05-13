@@ -27,6 +27,12 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/checkout/:paymentId',
+      name: 'checkout',
+      component: () => import('../views/CheckoutView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/admin/runtime',
       name: 'admin-runtime',
       component: () => import('../views/AdminRuntimeView.vue'),
@@ -36,6 +42,12 @@ const router = createRouter({
       path: '/admin/shop',
       name: 'admin-shop',
       component: () => import('../views/AdminShopManagementView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true },
+    },
+    {
+      path: '/admin/automation',
+      name: 'admin-automation',
+      component: () => import('../views/AdminAutomationView.vue'),
       meta: { requiresAuth: true, requiresAdmin: true },
     },
     {

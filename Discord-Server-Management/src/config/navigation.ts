@@ -14,4 +14,5 @@ export const navigationItems: NavigationItem[] = [
   { label: 'Management', path: '/management' },
   { label: 'Shop Management', path: '/admin/shop', adminOnly: true },
   { label: 'Admin Runtime', path: '/admin/runtime', adminOnly: true },
+  { label: 'Automation', path: '/admin/automation', adminOnly: true },
 ];

@@ -26,6 +26,7 @@ type AssignmentDraft = {
   botName: string;
   billingMode: BotBillingMode;
   monthlyPriceBaht: number;
+  runtimeCurrentPeriodEnd: string;
 };
 
 const authStore = useAuthStore();
@@ -124,6 +125,7 @@ async function saveProcessAssignment(processInfo: AdminRuntimeProcessResponse) {
       botName: draft.botName || processName,
       billingMode: draft.billingMode,
       monthlyPriceCents: draft.billingMode === 'FREE' ? 0 : Math.round(Number(draft.monthlyPriceBaht || 0) * 100),
+      runtimeCurrentPeriodEnd: draft.runtimeCurrentPeriodEnd || null,
     });
     await loadRuntimeDashboard();
   } catch (error) {
@@ -145,6 +147,7 @@ function syncAssignmentDrafts() {
       botName: assignedBot?.name ?? nextDrafts[processName]?.botName ?? processName,
       billingMode: assignedBot?.billingMode ?? nextDrafts[processName]?.billingMode ?? 'FREE',
       monthlyPriceBaht: assignedBot?.monthlyPriceCents ? assignedBot.monthlyPriceCents / 100 : nextDrafts[processName]?.monthlyPriceBaht ?? 0,
+      runtimeCurrentPeriodEnd: assignedBot?.runtimeCurrentPeriodEnd ?? nextDrafts[processName]?.runtimeCurrentPeriodEnd ?? '',
     };
   }
 
@@ -157,6 +160,7 @@ function assignmentDraft(processName: string): AssignmentDraft {
     botName: processName,
     billingMode: 'FREE',
     monthlyPriceBaht: 0,
+    runtimeCurrentPeriodEnd: '',
   };
 }
 
@@ -338,7 +342,7 @@ onMounted(loadRuntimeDashboard);
           <p>
             {{
               processInfo.bot
-                ? `${processInfo.bot.billingMode} · ${formatMoney(processInfo.bot.monthlyPriceCents)}/mo`
+                ? `${processInfo.bot.billingMode} · ${formatMoney(processInfo.bot.monthlyPriceCents)}/mo · expires ${processInfo.bot.runtimeCurrentPeriodEnd ?? 'not set'}`
                 : 'Select owner and save to show this bot on customer dashboard'
             }}
           </p>
@@ -387,6 +391,15 @@ onMounted(loadRuntimeDashboard);
               step="1"
               :disabled="assignmentDraft(processInfo.runtime.name).billingMode === 'FREE'"
               @input="updateAssignmentDraft(processInfo.runtime.name, 'monthlyPriceBaht', Number(($event.target as HTMLInputElement).value))"
+            />
+          </label>
+
+          <label>
+            Runtime expiry
+            <input
+              :value="assignmentDraft(processInfo.runtime.name).runtimeCurrentPeriodEnd"
+              type="date"
+              @input="updateAssignmentDraft(processInfo.runtime.name, 'runtimeCurrentPeriodEnd', ($event.target as HTMLInputElement).value)"
             />
           </label>
         </div>

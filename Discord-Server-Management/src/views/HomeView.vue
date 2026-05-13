@@ -1,36 +1,54 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import {
-  Activity,
   Bot,
   CheckCircle2,
   CircleAlert,
   CreditCard,
   MessageSquareText,
-  PackagePlus,
   PlugZap,
   Plus,
-  Radio,
   RefreshCw,
   Server,
   Settings,
-  ShieldCheck,
   ShoppingBag,
   Sparkles,
 } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/authStore';
 import {
   getCustomerDashboard,
+  updateCustomerBotConfig,
   type BotResponse,
   type BotStatus,
   type CustomerDashboardResponse,
-  type FeatureResponse,
 } from '@/services/customer';
 
 const authStore = useAuthStore();
 const dashboard = ref<CustomerDashboardResponse | null>(null);
 const isLoading = ref(true);
+const savingBotId = ref<number | null>(null);
 const errorMessage = ref('');
+const configDrafts = ref<Record<number, Record<string, string>>>({});
+const newConfigKeys = ref<Record<number, string>>({});
+
+const defaultConfigKeys = [
+  'DISCORD_TOKEN',
+  'CLIENT_ID',
+  'GUILD_ID',
+  'COMMAND_PREFIX',
+  'OWNER_ROLE_ID',
+  'ADMIN_ROLE_ID',
+  'LOG_CHANNEL_ID',
+  'ORDER_CHANNEL_ID',
+  'PAYMENT_CHANNEL_ID',
+  'REVIEW_CHANNEL_ID',
+  'VOICE_CHANNEL_ID',
+  'SHOP_STATUS_CHANNEL_ID',
+  'PROMPTPAY_ID',
+  'SLIPOK_API_KEY',
+  'ROBLOX_GROUP_ID',
+  'ROBLOX_COOKIE',
+];
 
 const statusText: Record<BotStatus, string> = {
   ONLINE: 'Online',
@@ -73,7 +91,6 @@ const summaryStats = computed(() => [
 
 const bots = computed(() => dashboard.value?.bots ?? []);
 const availableFeatures = computed(() => dashboard.value?.availableFeatures ?? []);
-const featuredPlans = computed(() => availableFeatures.value.slice(0, 3));
 
 const monthlyTotal = computed(() =>
   formatMoney(
@@ -95,10 +112,29 @@ async function loadDashboard() {
 
   try {
     dashboard.value = await getCustomerDashboard(authStore.accessToken);
+    syncConfigDrafts();
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Could not load dashboard';
   } finally {
     isLoading.value = false;
+  }
+}
+
+async function saveBotConfig(botInfo: BotResponse) {
+  if (!authStore.accessToken) return;
+
+  savingBotId.value = botInfo.id;
+  errorMessage.value = '';
+
+  try {
+    dashboard.value = await updateCustomerBotConfig(authStore.accessToken, botInfo.id, {
+      values: configDrafts.value[botInfo.id] ?? {},
+    });
+    syncConfigDrafts();
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : 'Could not save bot config';
+  } finally {
+    savingBotId.value = null;
   }
 }
 
@@ -120,12 +156,67 @@ function formatDate(value: string | null) {
   }).format(new Date(value));
 }
 
-function featurePrice(feature: FeatureResponse) {
-  return `${formatMoney(feature.monthlyPriceCents, feature.currency)}/mo`;
-}
-
 function botSubtitle(botInfo: BotResponse) {
   return `${botInfo.serverCount} servers · ${botInfo.commandCount} commands · ${botInfo.hostedRegion}`;
+}
+
+function runtimeCountdown(botInfo: BotResponse) {
+  if (!botInfo.runtimeExpiresAt) return 'No runtime expiry';
+  const days = Math.ceil((new Date(botInfo.runtimeExpiresAt).getTime() - Date.now()) / 86_400_000);
+  if (days < 0) return 'Expired';
+  if (days === 0) return 'Expires today';
+  return `${days} days left`;
+}
+
+function syncConfigDrafts() {
+  const nextDrafts: Record<number, Record<string, string>> = {};
+  for (const botInfo of bots.value) {
+    nextDrafts[botInfo.id] = {
+      ...Object.fromEntries(defaultConfigKeys.map((key) => [key, ''])),
+      ...Object.fromEntries(botInfo.configEntries.map((entry) => [entry.key, entry.secret ? '' : entry.value])),
+    };
+  }
+  configDrafts.value = nextDrafts;
+}
+
+function updateConfigDraft(botId: number, key: string, value: string) {
+  configDrafts.value = {
+    ...configDrafts.value,
+    [botId]: {
+      ...(configDrafts.value[botId] ?? {}),
+      [key]: value,
+    },
+  };
+}
+
+function addConfigKey(botId: number) {
+  const key = newConfigKeys.value[botId]?.trim();
+  if (!key) return;
+
+  updateConfigDraft(botId, key, '');
+  newConfigKeys.value = {
+    ...newConfigKeys.value,
+    [botId]: '',
+  };
+}
+
+function removeConfigKey(botId: number, key: string) {
+  const nextValues = { ...(configDrafts.value[botId] ?? {}) };
+  delete nextValues[key];
+  configDrafts.value = {
+    ...configDrafts.value,
+    [botId]: nextValues,
+  };
+}
+
+function isSecretConfigKey(key: string) {
+  const lowerKey = key.toLowerCase();
+  return lowerKey.includes('token')
+    || lowerKey.includes('secret')
+    || lowerKey.includes('password')
+    || lowerKey.includes('api_key')
+    || lowerKey.includes('apikey')
+    || lowerKey.endsWith('_key');
 }
 
 onMounted(loadDashboard);
@@ -252,9 +343,64 @@ onMounted(loadDashboard);
 
             <div class="feature-list">
               <span v-for="feature in botInfo.activeFeatures" :key="feature.subscriptionId">
-                {{ feature.name }}
+                {{ feature.name }} · {{ formatDate(feature.currentPeriodEnd) }}
               </span>
               <span v-if="botInfo.activeFeatures.length === 0">No paid features</span>
+            </div>
+
+            <div class="runtime-control">
+              <div>
+                <span>Runtime expires</span>
+                <strong>{{ runtimeCountdown(botInfo) }}</strong>
+              </div>
+              <p>{{ botInfo.runtimeExpiresAt ? formatDate(botInfo.runtimeExpiresAt) : 'ซื้อ Runtime 24/7 เพื่อเปิดรอบใช้งาน' }}</p>
+            </div>
+
+            <div class="config-panel">
+              <div class="config-heading">
+                <div>
+                  <span>Remote config</span>
+                  <strong>Bot & feature settings</strong>
+                </div>
+                <button
+                  type="button"
+                  class="tiny-button"
+                  :disabled="savingBotId === botInfo.id"
+                  @click="saveBotConfig(botInfo)"
+                >
+                  <RefreshCw v-if="savingBotId === botInfo.id" class="h-4 w-4 animate-spin" />
+                  <Settings v-else class="h-4 w-4" />
+                  Save config
+                </button>
+              </div>
+
+              <div class="config-add-row">
+                <input
+                  :value="newConfigKeys[botInfo.id] ?? ''"
+                  type="text"
+                  placeholder="CUSTOM_ENV_KEY"
+                  @input="newConfigKeys = { ...newConfigKeys, [botInfo.id]: ($event.target as HTMLInputElement).value }"
+                  @keyup.enter="addConfigKey(botInfo.id)"
+                />
+                <button type="button" class="tiny-button" @click="addConfigKey(botInfo.id)">Add key</button>
+              </div>
+
+              <div class="config-grid">
+                <label v-for="(_, key) in configDrafts[botInfo.id]" :key="key">
+                  <span>
+                    {{ key }}
+                    <button type="button" aria-label="Remove config key" @click="removeConfigKey(botInfo.id, String(key))">
+                      Remove
+                    </button>
+                  </span>
+                  <input
+                    :type="isSecretConfigKey(String(key)) ? 'password' : 'text'"
+                    :placeholder="isSecretConfigKey(String(key)) ? 'Paste value only when rotating' : 'Config value'"
+                    :value="configDrafts[botInfo.id]?.[String(key)] ?? ''"
+                    @input="updateConfigDraft(botInfo.id, String(key), ($event.target as HTMLInputElement).value)"
+                  />
+                </label>
+              </div>
             </div>
 
             <div class="bot-footer">
@@ -271,60 +417,6 @@ onMounted(loadDashboard);
           </article>
         </div>
       </div>
-
-      <aside class="side-stack">
-        <section class="insight-panel" aria-label="Feature marketplace">
-          <div class="section-heading">
-            <div>
-              <p class="eyebrow">Feature store</p>
-              <h2>Monthly add-ons</h2>
-            </div>
-            <PackagePlus class="h-5 w-5" />
-          </div>
-
-          <div class="feature-market-list">
-            <article v-for="feature in featuredPlans" :key="feature.id" class="market-card">
-              <div>
-                <strong>{{ feature.name }}</strong>
-                <span>{{ feature.category }}</span>
-              </div>
-              <p>{{ feature.description }}</p>
-              <div class="market-footer">
-                <span>{{ featurePrice(feature) }}</span>
-                <button type="button" class="tiny-button">Buy</button>
-              </div>
-            </article>
-          </div>
-        </section>
-
-        <section class="insight-panel" aria-label="System health">
-          <div class="section-heading">
-            <div>
-              <p class="eyebrow">Hosting health</p>
-              <h2>24/7 runtime</h2>
-            </div>
-            <Activity class="h-5 w-5" />
-          </div>
-
-          <div class="health-stack">
-            <div class="health-row">
-              <ShieldCheck class="h-4 w-4" />
-              <div>
-                <strong>DigitalOcean hosting</strong>
-                <span>พร้อมต่อยอดเป็น worker/runtime ต่อ bot</span>
-              </div>
-            </div>
-            <div class="health-row">
-              <Radio class="h-4 w-4" />
-              <div>
-                <strong>Gateway monitor</strong>
-                <span>เช็ค heartbeat และสถานะ online/offline</span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-      </aside>
     </section>
   </main>
 </template>
@@ -343,6 +435,8 @@ onMounted(loadDashboard);
 .bots-panel,
 .insight-panel,
 .bot-card,
+.runtime-control,
+.config-panel,
 .notice-panel,
 .empty-state,
 .market-card,
@@ -570,7 +664,6 @@ h3 {
 
 .content-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 22rem;
   gap: 1rem;
   margin-top: 1rem;
 }
@@ -685,6 +778,106 @@ h3 {
   margin-top: 1rem;
   border-top: 1px solid var(--color-divider);
   padding-top: 0.9rem;
+}
+
+.runtime-control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding: 0.85rem;
+  background: var(--color-surface-muted);
+  box-shadow: none;
+}
+
+.runtime-control span,
+.config-heading span,
+.config-grid label {
+  color: var(--color-text-muted);
+  font-size: 0.76rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.runtime-control strong,
+.config-heading strong {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.runtime-control p {
+  color: var(--color-text-secondary);
+  font-size: 0.86rem;
+}
+
+.config-panel {
+  margin-top: 1rem;
+  padding: 0.9rem;
+  background: color-mix(in srgb, var(--color-surface) 96%, transparent);
+  box-shadow: none;
+}
+
+.config-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.config-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+  gap: 0.75rem;
+  margin-top: 0.9rem;
+}
+
+.config-add-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+}
+
+.config-add-row input {
+  flex: 1;
+}
+
+.config-add-row input,
+.config-grid label {
+  min-width: 0;
+}
+
+.config-grid label {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.config-grid label > span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.config-grid label button {
+  border: 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+  font-weight: 850;
+}
+
+.config-add-row input,
+.config-grid input {
+  min-height: 2.35rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0 0.7rem;
+  background: var(--color-surface-muted);
+  color: var(--color-text-primary);
+  font-weight: 800;
 }
 
 .bot-footer > div {
@@ -887,6 +1080,8 @@ h3 {
   .billing-strip,
   .bot-card-header,
   .bot-footer,
+  .runtime-control,
+  .config-heading,
   .notice-panel {
     align-items: stretch;
     flex-direction: column;
@@ -901,6 +1096,14 @@ h3 {
   .secondary-action,
   .manage-button {
     width: 100%;
+  }
+
+  .config-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .config-add-row {
+    flex-direction: column;
   }
 
   .stats-grid {

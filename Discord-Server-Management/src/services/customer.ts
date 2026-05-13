@@ -37,6 +37,14 @@ export type BotFeatureResponse = {
   autoRenew: boolean;
 };
 
+export type BotConfigResponse = {
+  key: string;
+  value: string;
+  secret: boolean;
+  scope: string;
+  updatedAt: string;
+};
+
 export type BotResponse = {
   id: number;
   discordApplicationId: string;
@@ -51,7 +59,9 @@ export type BotResponse = {
   uptimePercent: number;
   hostedRegion: string;
   lastHeartbeatAt: string | null;
+  runtimeExpiresAt: string | null;
   activeFeatures: BotFeatureResponse[];
+  configEntries: BotConfigResponse[];
 };
 
 export type BillingSummaryResponse = {
@@ -134,6 +144,7 @@ export type AdminRuntimeBotResponse = {
   status: BotStatus;
   billingMode: BotBillingMode;
   monthlyPriceCents: number;
+  runtimeCurrentPeriodEnd: string | null;
 };
 
 export type AdminRuntimeProcessResponse = {
@@ -154,6 +165,7 @@ export type AdminProcessAssignmentPayload = {
   botName: string;
   billingMode: BotBillingMode;
   monthlyPriceCents: number;
+  runtimeCurrentPeriodEnd?: string | null;
 };
 
 export type AdminShopFeaturePayload = {
@@ -170,6 +182,75 @@ export type AdminShopFeaturePayload = {
   active: boolean;
 };
 
+export type AutomationSettingResponse = {
+  key: string;
+  value: string;
+  description: string;
+};
+
+export type AutomationRunResponse = {
+  id: number;
+  runType: 'MANUAL' | 'SCHEDULED' | string;
+  status: 'RUNNING' | 'SUCCESS' | 'FAILED' | string;
+  billingMarkedPastDue: number;
+  featureMarkedPastDue: number;
+  featureCanceled: number;
+  runtimeSuspended: number;
+  notificationsCreated: number;
+  errorMessage: string | null;
+  startedAt: string;
+  finishedAt: string | null;
+};
+
+export type AutomationDashboardResponse = {
+  enabled: boolean;
+  runtimeSuspendEnabled: boolean;
+  reminderDaysBefore: number;
+  pastDueGraceDays: number;
+  cancelGraceDays: number;
+  activeBillingSubscriptions: number;
+  pastDueBillingSubscriptions: number;
+  activeFeatureSubscriptions: number;
+  pastDueFeatureSubscriptions: number;
+  settings: AutomationSettingResponse[];
+  recentRuns: AutomationRunResponse[];
+};
+
+export type AutomationSettingUpdatePayload = {
+  settings: Record<string, string>;
+};
+
+export type CheckoutItemResponse = {
+  featureId: number;
+  code: string;
+  name: string;
+  amountCents: number;
+  currency: string;
+};
+
+export type CheckoutResponse = {
+  paymentId: number;
+  checkoutReference: string;
+  provider: string;
+  providerPaymentId: string;
+  status: 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED' | string;
+  amountCents: number;
+  currency: string;
+  qrCodeUrl: string | null;
+  expiresAt: string | null;
+  items: CheckoutItemResponse[];
+};
+
+export type CheckoutPayload = {
+  botId: number;
+  packCode?: string;
+  featureIds: number[];
+};
+
+export type BotConfigUpdatePayload = {
+  values: Record<string, string>;
+};
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080';
 
 export async function getCustomerDashboard(accessToken: string) {
@@ -183,6 +264,29 @@ export async function getCustomerDashboard(accessToken: string) {
 
   if (!response.ok) {
     throw new Error(data?.message ?? 'Could not load customer dashboard');
+  }
+
+  return data as CustomerDashboardResponse;
+}
+
+export async function updateCustomerBotConfig(
+  accessToken: string,
+  botId: number,
+  payload: BotConfigUpdatePayload,
+) {
+  const response = await fetch(`${API_BASE_URL}/api/customer/bots/${botId}/config`, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(data?.message ?? 'Could not update bot config');
   }
 
   return data as CustomerDashboardResponse;
@@ -343,4 +447,94 @@ export async function updateAdminShopFeature(
   }
 
   return data as FeatureResponse;
+}
+
+export async function getAdminAutomationDashboard(accessToken: string) {
+  const response = await fetch(`${API_BASE_URL}/api/admin/automation`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(data?.message ?? 'Could not load automation dashboard');
+  }
+
+  return data as AutomationDashboardResponse;
+}
+
+export async function updateAdminAutomationSettings(
+  accessToken: string,
+  payload: AutomationSettingUpdatePayload,
+) {
+  const response = await fetch(`${API_BASE_URL}/api/admin/automation/settings`, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(data?.message ?? 'Could not update automation settings');
+  }
+
+  return data as AutomationDashboardResponse;
+}
+
+export async function runAdminAutomationNow(accessToken: string) {
+  const response = await fetch(`${API_BASE_URL}/api/admin/automation/run`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(data?.message ?? 'Could not run automation');
+  }
+
+  return data as AutomationRunResponse;
+}
+
+export async function createCustomerCheckout(accessToken: string, payload: CheckoutPayload) {
+  const response = await fetch(`${API_BASE_URL}/api/customer/checkout`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(data?.message ?? 'Could not create checkout');
+  }
+
+  return data as CheckoutResponse;
+}
+
+export async function getCustomerPayment(accessToken: string, paymentId: number) {
+  const response = await fetch(`${API_BASE_URL}/api/customer/payments/${paymentId}`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(data?.message ?? 'Could not load payment');
+  }
+
+  return data as CheckoutResponse;
 }

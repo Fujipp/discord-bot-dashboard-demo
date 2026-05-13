@@ -15,7 +15,14 @@ import {
   Megaphone,
   Zap,
 } from 'lucide-vue-next';
-import { getCustomerDashboard, type CustomerDashboardResponse, type FeatureCategory, type FeatureResponse } from '@/services/customer';
+import { useRouter } from 'vue-router';
+import {
+  createCustomerCheckout,
+  getCustomerDashboard,
+  type CustomerDashboardResponse,
+  type FeatureCategory,
+  type FeatureResponse,
+} from '@/services/customer';
 import { useAuthStore } from '@/stores/authStore';
 
 type ShopMode = 'features' | 'packs';
@@ -29,12 +36,16 @@ type FeaturePack = {
 };
 
 const authStore = useAuthStore();
+const router = useRouter();
 const dashboard = ref<CustomerDashboardResponse | null>(null);
 const isLoading = ref(true);
+const isCheckingOut = ref(false);
 const errorMessage = ref('');
+const checkoutMessage = ref('');
 const activeMode = ref<ShopMode>('packs');
 const searchQuery = ref('');
 const activeCategory = ref<'ALL' | FeatureCategory>('ALL');
+const selectedBotId = ref<number | null>(null);
 
 const categoryLabels: Record<FeatureCategory, string> = {
   SHOP: 'Shop',
@@ -48,6 +59,13 @@ const categoryLabels: Record<FeatureCategory, string> = {
 };
 
 const packs: FeaturePack[] = [
+  {
+    code: 'test-package',
+    name: 'Test Package',
+    description: 'แพ็กเกจสำหรับทดสอบ checkout, PromptPay QR, webhook และการเปิด feature ราคา 10 บาท',
+    featureCodes: ['test-package-10'],
+    badge: 'Test',
+  },
   {
     code: 'starter-shop',
     name: 'Starter Shop Bot',
@@ -86,6 +104,7 @@ const packs: FeaturePack[] = [
 ];
 
 const features = computed(() => dashboard.value?.availableFeatures ?? []);
+const bots = computed(() => dashboard.value?.bots ?? []);
 const featureByCode = computed(() => new Map(features.value.map((feature) => [feature.code, feature])));
 const featuredPromotions = computed(() =>
   features.value
@@ -181,10 +200,44 @@ async function loadShop() {
 
   try {
     dashboard.value = await getCustomerDashboard(authStore.accessToken);
+    selectedBotId.value = selectedBotId.value ?? dashboard.value.bots[0]?.id ?? null;
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Could not load shop catalog';
   } finally {
     isLoading.value = false;
+  }
+}
+
+async function buyFeature(feature: FeatureResponse) {
+  await createCheckout([feature.id]);
+}
+
+async function buyPack(pack: { code: string; features: FeatureResponse[] }) {
+  await createCheckout(pack.features.map((feature) => feature.id), pack.code);
+}
+
+async function createCheckout(featureIds: number[], packCode?: string) {
+  authStore.loadSession();
+  if (!authStore.accessToken || !selectedBotId.value) {
+    checkoutMessage.value = 'กรุณาเลือก bot ก่อนเริ่ม checkout';
+    return;
+  }
+
+  isCheckingOut.value = true;
+  errorMessage.value = '';
+  checkoutMessage.value = '';
+
+  try {
+    const checkout = await createCustomerCheckout(authStore.accessToken, {
+      botId: selectedBotId.value,
+      packCode,
+      featureIds,
+    });
+    await router.push({ name: 'checkout', params: { paymentId: checkout.paymentId } });
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : 'Could not create payment checkout';
+  } finally {
+    isCheckingOut.value = false;
   }
 }
 
@@ -281,7 +334,7 @@ onMounted(loadShop);
     <section v-if="errorMessage" class="notice-panel error-panel">
       <CircleAlert class="h-5 w-5" />
       <div>
-        <strong>โหลด Shop ไม่สำเร็จ</strong>
+        <strong>{{ isCheckingOut ? 'สร้าง Checkout ไม่สำเร็จ' : 'โหลด Shop ไม่สำเร็จ' }}</strong>
         <span>{{ errorMessage }}</span>
       </div>
       <button type="button" class="icon-button" aria-label="Retry shop catalog" @click="loadShop">
@@ -290,6 +343,16 @@ onMounted(loadShop);
     </section>
 
     <section class="toolbar" aria-label="Shop filters">
+      <label class="bot-selector">
+        <Bot class="h-4 w-4" />
+        <select v-model="selectedBotId">
+          <option :value="null" disabled>เลือก bot สำหรับ checkout</option>
+          <option v-for="botInfo in bots" :key="botInfo.id" :value="botInfo.id">
+            {{ botInfo.name }}
+          </option>
+        </select>
+      </label>
+
       <label class="search-box">
         <Search class="h-4 w-4" />
         <input v-model="searchQuery" type="search" placeholder="Search features, packs, payments..." />
@@ -342,7 +405,7 @@ onMounted(loadShop);
           </li>
         </ul>
 
-        <button type="button" class="primary-action">
+        <button type="button" class="primary-action" :disabled="isCheckingOut || !selectedBotId" @click="buyPack(pack)">
           <ShoppingCart class="h-4 w-4" />
           เลือก Pack นี้
         </button>
@@ -372,7 +435,7 @@ onMounted(loadShop);
           <strong>{{ formatMoney(effectivePrice(feature), feature.currency) }}</strong>
           <del v-if="feature.promotionPriceCents">{{ formatMoney(feature.monthlyPriceCents, feature.currency) }}</del>
           <span>/ เดือน</span>
-          <button type="button" class="secondary-action">
+          <button type="button" class="secondary-action" :disabled="isCheckingOut || !selectedBotId" @click="buyFeature(feature)">
             <ShoppingCart class="h-4 w-4" />
             เพิ่ม
           </button>
@@ -623,11 +686,11 @@ onMounted(loadShop);
   border-radius: 8px;
 }
 
+.bot-selector,
 .search-box {
   display: flex;
   align-items: center;
   gap: 10px;
-  flex: 1 1 320px;
   min-height: 42px;
   padding: 0 12px;
   border: 1px solid var(--color-border);
@@ -636,6 +699,15 @@ onMounted(loadShop);
   background: var(--color-surface);
 }
 
+.bot-selector {
+  flex: 0 1 280px;
+}
+
+.search-box {
+  flex: 1 1 320px;
+}
+
+.bot-selector select,
 .search-box input {
   width: 100%;
   border: 0;
@@ -731,6 +803,12 @@ onMounted(loadShop);
 .secondary-action {
   min-height: 42px;
   padding: 0 16px;
+}
+
+.primary-action:disabled,
+.secondary-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .primary-action {
@@ -838,6 +916,7 @@ onMounted(loadShop);
   .announcement-panel {
     grid-template-columns: 1fr;
   }
+
 }
 
 @media (max-width: 720px) {
