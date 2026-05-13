@@ -30,6 +30,9 @@
 - `bot_feature_subscriptions`: ผูก feature ที่ลูกค้าซื้อเข้ากับ bot แต่ละตัว
 - `billing_subscriptions`: summary subscription ต่อ user สำหรับรอบบิลรายเดือน
 - `payments`: payment record สำหรับต่อระบบชำระเงินจริงภายหลัง
+- `payment_items`: รายการ feature ที่อยู่ใน payment แต่ละครั้ง
+- `automation_settings`, `automation_runs`, `customer_notifications`: policy/audit/notification สำหรับ automation
+- `bot_config_entries`: remote `.env`/config ต่อ bot เก็บ key-value และ mask ค่า secret ตอนส่งกลับ frontend
 
 หมายเหตุ:
 
@@ -41,6 +44,10 @@ mysql -u root -p < Database/migrations/001_allow_social_user_age_null.sql
 mysql -u root -p discord_server_management < Database/migrations/002_customer_portal_tables.sql
 mysql -u root -p discord_server_management < Database/migrations/003_bot_runtime_billing_controls.sql
 mysql -u root -p < Database/migrations/004_shop_feature_catalog.sql
+mysql -u root -p < Database/migrations/005_automation_engine.sql
+mysql -u root -p < Database/migrations/006_promptpay_checkout.sql
+mysql -u root -p < Database/migrations/007_test_package_10_baht.sql
+mysql -u root -p < Database/migrations/008_bot_remote_config.sql
 ```
 
 `004_shop_feature_catalog.sql` ทำงานสำคัญ:
@@ -57,6 +64,7 @@ mysql -u root -p < Database/migrations/004_shop_feature_catalog.sql
 Feature catalog ปัจจุบัน:
 
 - `runtime-247`: hosting/PM2 runtime 24/7
+- `test-package-10`: package 10 บาทสำหรับทดสอบ checkout/payment/webhook
 - `shop-orders`: บันทึกออเดอร์สินค้า
 - `shop-status`: ประกาศเปิด/ปิดร้าน
 - `payment-embed`: payment panel/embed
@@ -95,11 +103,18 @@ POST /api/auth/register
 POST /api/auth/login
 GET  /api/auth/me
 GET  /api/customer/dashboard
+PUT  /api/customer/bots/{botId}/config
+POST /api/customer/checkout
+GET  /api/customer/payments/{paymentId}
+POST /api/webhooks/omise
 GET  /api/admin/runtime/processes?hostId=...&userSearch=...
 POST /api/admin/runtime/processes/{processName}/assignment?hostId=...
 POST /api/admin/runtime/processes/{processName}/{action}?hostId=...
 GET  /api/admin/shop/features
 PUT  /api/admin/shop/features/{featureId}
+GET  /api/admin/automation
+PUT  /api/admin/automation/settings
+POST /api/admin/automation/run
 ```
 
 OAuth endpoints จาก Spring Security:
@@ -154,6 +169,10 @@ BOT_RUNNER_SSH_KEY_PATH=
 BOT_RUNNER_PM2_BINARY=pm2
 BOT_RUNNER_NAME=DigitalOcean Primary
 BOT_RUNNER_REGION=sgp1
+OMISE_PUBLIC_KEY=...
+OMISE_SECRET_KEY=...
+OMISE_API_BASE_URL=https://api.omise.co
+PAYMENT_CHECKOUT_EXPIRATION_MINUTES=30
 ```
 
 Runtime/VM notes:
@@ -232,6 +251,7 @@ Navigation guard:
 - `/` และ `/about` ต้อง authenticated
 - `/admin/runtime` ต้อง authenticated และต้องเป็น role `ADMIN`
 - `/admin/shop` ต้อง authenticated และต้องเป็น role `ADMIN`
+- `/admin/automation` ต้อง authenticated และต้องเป็น role `ADMIN`
 - `/login` และ `/register` เป็น guest-only
 - ถ้า token หมดอายุหรือ invalid จะ clear session และ redirect ไป `/login`
 
@@ -250,6 +270,97 @@ Shop/pack behavior:
 - Pack price คำนวณจากราคา feature ปัจจุบัน และใช้ promotion price ถ้ามี
 - Announcement panel ดึง feature ที่เป็น `featured` หรือมี `promotion_price_cents` มาแสดงเป็นจุดประกาศ
 - ปุ่มซื้อยังเป็น UI placeholder รอเชื่อม payment/checkout flow จริง
+
+Automation behavior:
+
+- Migration: `Database/migrations/005_automation_engine.sql`
+- Tables:
+  - `automation_settings`: policy กลาง เช่น enable, grace day, reminder day, runtime suspend
+  - `automation_runs`: audit log ของ manual/scheduled run
+  - `customer_notifications`: notification queue สำหรับ billing/feature/runtime event
+- Backend endpoint:
+  - `GET /api/admin/automation`
+  - `PUT /api/admin/automation/settings`
+  - `POST /api/admin/automation/run`
+- Scheduled run: ทุกวัน 09:00 ตาม `Asia/Bangkok`
+- งานที่ automation ทำ:
+  - แจ้งเตือน billing ก่อน renewal ตาม `automation.reminder_days_before`
+  - เปลี่ยน billing subscription เป็น `PAST_DUE` หลังครบ `automation.past_due_grace_days`
+  - เปลี่ยน feature subscription เป็น `PAST_DUE`
+  - cancel feature subscription หลังครบ `automation.cancel_grace_days`
+  - stop PM2 runtime เฉพาะเมื่อเปิด `automation.runtime_suspend_enabled`
+- ค่าเริ่มต้น `automation.runtime_suspend_enabled=false` เพื่อกันการหยุด bot จริงโดยไม่ตั้งใจ
+- Frontend page: `/admin/automation` สำหรับดู summary, ตั้ง policy, กด manual run และดู recent runs
+
+Payment behavior:
+
+- Migration: `Database/migrations/006_promptpay_checkout.sql`
+- Test package migration: `Database/migrations/007_test_package_10_baht.sql`
+- Remote config migration: `Database/migrations/008_bot_remote_config.sql`
+- Provider MVP: `OMISE_PROMPTPAY`
+- Backend endpoint:
+  - `POST /api/customer/checkout`: สร้าง PromptPay checkout จาก feature/pack และ bot ที่เลือก
+  - `GET /api/customer/payments/{paymentId}`: refresh สถานะ checkout ของลูกค้า
+  - `POST /api/webhooks/omise`: webhook public สำหรับ Omise event `charge.complete`
+- ถ้า backend มี `OMISE_PUBLIC_KEY` และ `OMISE_SECRET_KEY` ที่ขึ้นต้นด้วย `pkey_`/`skey_` จะเรียก Omise API จริง
+- ถ้ายังไม่ตั้ง key จะใช้ mock PromptPay QR สำหรับ local development เพื่อให้ frontend/backend flow ทดสอบได้
+- เมื่อ charge status เป็น `successful`:
+  - payment เปลี่ยนเป็น `PAID`
+  - สร้าง billing subscription รอบ 1 เดือน
+  - เปิด/ต่ออายุ `bot_feature_subscriptions` ให้ bot ที่เลือก
+- Frontend Shop เลือก bot เป้าหมายก่อนซื้อ feature เดี่ยวหรือ pack แล้ว redirect ไป `/checkout/{paymentId}`
+- หน้า Checkout เป็น dedicated payment page มี order summary, PromptPay QR, reference, expiry, status และ refresh payment
+- มี `Test Package` ราคา 10 บาทบนหน้า Shop สำหรับทดสอบ payment flow แบบ low-value
+- Omise PromptPay จริงมีขั้นต่ำ 20 บาท; checkout ที่ต่ำกว่า 20 บาทจะใช้ mock QR เพื่อทดสอบ flow ภายในระบบเท่านั้น
+
+Dashboard / Runtime behavior:
+
+- Customer Dashboard โฟกัสเป็น bot remote control มากขึ้น:
+  - แสดง runtime expiry และ countdown ต่อ bot
+  - แสดง feature expiry ต่อ feature
+  - แก้ remote `.env`/config ได้หลาย key ต่อ bot เช่น `DISCORD_TOKEN`, `CLIENT_ID`, `GUILD_ID`, `COMMAND_PREFIX`, role/channel ids, payment ids, Roblox ids/cookie
+  - เพิ่ม custom config key จากหน้า Dashboard ได้เอง
+  - config key ที่เป็น token/secret/password/api key จะถูก mask ตอนส่งกลับ frontend
+- Admin Runtime ปรับ owner, billing mode, ราคา/เดือน และ runtime expiry ต่อ bot ได้
+
+ข้อสำคัญของ remote config:
+
+- ตอนนี้ระบบเก็บค่า config ใน DB แล้ว แต่ยังไม่ได้ sync กลับไปเขียน `.env` บน VM หรือ restart PM2 อัตโนมัติ
+- รอบถัดไปควรเพิ่ม backend job/API สำหรับ deploy config ไปยัง VM แบบ atomic:
+  - render `.env` ต่อ bot จาก `bot_config_entries`
+  - backup `.env` เดิม
+  - เขียนไฟล์ใหม่ด้วย permission จำกัด
+  - restart PM2 process
+  - rollback ถ้า restart fail
+
+Bot source snapshots:
+
+- ดึง source snapshot จาก VM เข้าโฟลเดอร์ `Bots/` แล้ว เพื่อใช้แยก feature และออกแบบระบบขาย feature/pack
+- ตอนนี้ `Bots/` ถูกตั้งเป็น local-only snapshot ยังไม่ push bot code จนกว่าจะ optimize/clean แล้ว
+- โครงหลักตอนนี้:
+  - `Bots/discord-bot-001-kanom-roblox` - Roblox topup/payment bot
+  - `Bots/discord-bot-002-idaxdshop` - shop/credit/order/status/voice bot
+  - `Bots/discord-bot-003-akashop` - review/credit bot
+  - `Bots/discord-bot-004-kanom-price` - price embed/scheduled message bot
+- ตอนดึงไฟล์ exclude `node_modules`, `.env`, `.env.*`, `.git`, logs และ pid files แล้ว
+- `.gitignore` ตอนนี้ ignore `Bots/**` ทั้งหมด ยกเว้น `Bots/README.md` เพื่อกันไม่ให้ source/runtime data ของ bot ติด push ก่อนพร้อม
+- สแกน token/secret รอบแรกแล้ว เจอเฉพาะการอ้างถึง env variable ใน code/README เช่น `DISCORD_TOKEN`, `ROBLOX_TOTP_SECRET` ยังไม่เจอค่าลับจริงจาก `.env`
+- มี `Bots/README.md` สำหรับกติกาความปลอดภัยของ snapshot
+- ขั้นถัดไปที่ควรทำ:
+  - แยก feature definitions จาก bot เหล่านี้ เช่น topup, slip/payment check, credit wallet, order tracking, status embed, voice keeper, price embed scheduler
+  - map feature แต่ละตัวเข้ากับ required variables เช่น token, guild id, channel id, role id, payment config, Roblox config
+  - ทำ contract ให้ bot runtime ดึง feature entitlement + variables จาก backend แทนการ hardcode config ในไฟล์ JSON/`.env`
+  - ค่อยเลือก migrate code ที่ optimize แล้วออกจาก `Bots/` เข้าส่วน product จริง
+
+Repository guardrails:
+
+- เพิ่ม root `.gitignore` ให้ครอบคลุม secret, key/cert, dependency, build output, Maven target, IDE files, local database dump และ bot runtime data
+- ตั้งใจให้ `Bots/**` เป็น local-only snapshot ไม่ push bot code จนกว่าจะ cleanup/optimize
+- เพิ่ม `AGENTS.md` สำหรับ agent/Codex รอบถัดไป:
+  - อธิบายโครง `Database`, `Backend`, `Discord-Server-Management`, `Bots`
+  - ระบุ safety rules เรื่อง secret และ production/customer data
+  - ระบุ command หลักสำหรับ backend/frontend verification
+  - ระบุแนวทาง bot feature productization และ git commit style
 
 Frontend env:
 
@@ -343,3 +454,4 @@ fix(frontend): ...
 - เพิ่ม Admin Shop Management สำหรับจัดการราคา promotion featured active และ sort order
 - ปรับ UI ทุกหน้าให้ใช้ visual language เดียวกันมากขึ้น เช่น background, heading scale, panel/card, button, notice และ auth pages
 - แยก push เป็น database/backend/frontend commits ตาม pattern
+- เพิ่มระบบ Automation สำหรับ billing reminder, past due, feature cancellation, notification audit และหน้า Admin Automation Center
